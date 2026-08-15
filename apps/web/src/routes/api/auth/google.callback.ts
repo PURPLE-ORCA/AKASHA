@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router"
 
 import { createGoogleOAuthClient } from "@/server/auth/google-oauth.server"
 import { useStillroomSession } from "@/server/auth/session.server"
+import { createRedirectResponse } from "@/server/http/redirect.server"
 
 export const Route = createFileRoute("/api/auth/google/callback")({
   server: {
@@ -51,5 +52,5 @@ function redirectToLibrary(
   const libraryUrl = new URL("/", request.url)
   libraryUrl.searchParams.set("connection", connection)
 
-  return Response.redirect(libraryUrl, 303)
+  return createRedirectResponse(libraryUrl, 303)
 }
