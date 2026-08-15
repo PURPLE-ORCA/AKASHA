@@ -26,12 +26,18 @@ type MediaGalleryProps = {
   items: LibraryItem[]
   selectedItemIds: Set<string>
   onItemSelectionChange: (itemId: string, selected: boolean) => void
+  onMoveItems: (itemIds: string[]) => void
+  onRemoveItems: (itemIds: string[]) => void
+  actionsDisabled: boolean
 }
 
 export function MediaGallery({
   items,
   selectedItemIds,
   onItemSelectionChange,
+  onMoveItems,
+  onRemoveItems,
+  actionsDisabled,
 }: MediaGalleryProps) {
   if (items.length === 0) {
     return (
@@ -55,6 +61,9 @@ export function MediaGallery({
         <MediaCard
           item={item}
           key={item.id}
+          actionsDisabled={actionsDisabled}
+          onMove={() => onMoveItems([item.id])}
+          onRemove={() => onRemoveItems([item.id])}
           onSelectionChange={onItemSelectionChange}
           selected={selectedItemIds.has(item.id)}
         />
@@ -66,10 +75,20 @@ export function MediaGallery({
 type MediaCardProps = {
   item: LibraryItem
   selected: boolean
+  actionsDisabled: boolean
+  onMove: () => void
+  onRemove: () => void
   onSelectionChange: (itemId: string, selected: boolean) => void
 }
 
-function MediaCard({ item, selected, onSelectionChange }: MediaCardProps) {
+function MediaCard({
+  item,
+  selected,
+  actionsDisabled,
+  onMove,
+  onRemove,
+  onSelectionChange,
+}: MediaCardProps) {
   const duration = item.durationSeconds
     ? formatDuration(item.durationSeconds)
     : null
@@ -154,12 +173,16 @@ function MediaCard({ item, selected, onSelectionChange }: MediaCardProps) {
               <ArrowSquareOutIcon aria-hidden="true" />
               Open source
             </DropdownMenuItem>
-            <DropdownMenuItem>
+            <DropdownMenuItem disabled={actionsDisabled} onClick={onMove}>
               <FolderSimpleIcon aria-hidden="true" />
               Move to folder
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive">
+            <DropdownMenuItem
+              disabled={actionsDisabled}
+              onClick={onRemove}
+              variant="destructive"
+            >
               <TrashIcon aria-hidden="true" />
               Remove
             </DropdownMenuItem>

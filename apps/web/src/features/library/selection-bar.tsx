@@ -4,11 +4,20 @@ import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 
 type SelectionBarProps = {
+  disabled: boolean
   selectedCount: number
   onClear: () => void
+  onMove: () => void
+  onRemove: () => void
 }
 
-export function SelectionBar({ selectedCount, onClear }: SelectionBarProps) {
+export function SelectionBar({
+  disabled,
+  selectedCount,
+  onClear,
+  onMove,
+  onRemove,
+}: SelectionBarProps) {
   if (selectedCount === 0) {
     return null
   }
@@ -19,11 +28,11 @@ export function SelectionBar({ selectedCount, onClear }: SelectionBarProps) {
         {selectedCount} selected
       </span>
       <Separator orientation="vertical" />
-      <Button variant="ghost" size="lg">
+      <Button disabled={disabled} onClick={onMove} variant="ghost" size="lg">
         <FolderSimpleIcon data-icon="inline-start" aria-hidden="true" />
         Move
       </Button>
-      <Button variant="ghost" size="lg">
+      <Button disabled={disabled} onClick={onRemove} variant="ghost" size="lg">
         <TrashIcon data-icon="inline-start" aria-hidden="true" />
         Remove
       </Button>

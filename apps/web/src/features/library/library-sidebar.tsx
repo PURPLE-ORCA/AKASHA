@@ -1,30 +1,35 @@
-import { PlusIcon } from "@phosphor-icons/react"
 import type { FolderTreeNode } from "@stillroom/contracts"
 
 import { StillroomBrand } from "@/components/stillroom/brand"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { FolderTree } from "./folder-tree"
+import { NewFolderDialog } from "./library-action-dialogs"
 
 type LibrarySidebarProps = {
   folders: FolderTreeNode[]
   isConnected: boolean
+  onCreateFolder: (name: string) => Promise<void>
   selectedFolderId: string
+  selectedFolderName: string
 }
 
 export function LibrarySidebar({
   folders,
   isConnected,
+  onCreateFolder,
   selectedFolderId,
+  selectedFolderName,
 }: LibrarySidebarProps) {
   return (
     <div className="flex h-full min-h-0 flex-col bg-sidebar px-4 py-5 text-sidebar-foreground">
       <StillroomBrand />
       <div className="mt-8">
-        <Button size="lg">
-          <PlusIcon data-icon="inline-start" aria-hidden="true" />
-          New folder
-        </Button>
+        <NewFolderDialog
+          disabled={!isConnected}
+          onCreate={onCreateFolder}
+          parentName={selectedFolderName}
+        />
       </div>
       <div className="my-5">
         <Separator />
@@ -43,6 +48,7 @@ export function LibrarySidebar({
           </p>
         ) : (
           <Button
+            nativeButton={false}
             render={<a href="/api/auth/google" />}
             size="lg"
             variant="outline"

@@ -3,7 +3,6 @@ import {
   GridFourIcon,
   ListBulletsIcon,
   MagnifyingGlassIcon,
-  PlusIcon,
   SidebarSimpleIcon,
 } from "@phosphor-icons/react"
 import type { FolderTreeNode } from "@stillroom/contracts"
@@ -38,8 +37,10 @@ type LibraryToolbarProps = {
   folders: FolderTreeNode[]
   folderPath: string[]
   isConnected: boolean
+  onCreateFolder: (name: string) => Promise<void>
   searchQuery: string
   selectedFolderId: string
+  selectedFolderName: string
   onSearchChange: (query: string) => void
 }
 
@@ -47,8 +48,10 @@ export function LibraryToolbar({
   folders,
   folderPath,
   isConnected,
+  onCreateFolder,
   searchQuery,
   selectedFolderId,
+  selectedFolderName,
   onSearchChange,
 }: LibraryToolbarProps) {
   return (
@@ -79,7 +82,9 @@ export function LibraryToolbar({
               <LibrarySidebar
                 folders={folders}
                 isConnected={isConnected}
+                onCreateFolder={onCreateFolder}
                 selectedFolderId={selectedFolderId}
+                selectedFolderName={selectedFolderName}
               />
             </SheetContent>
           </Sheet>
@@ -127,10 +132,6 @@ export function LibraryToolbar({
             <TooltipContent>List view</TooltipContent>
           </Tooltip>
         </div>
-        <Button size="lg">
-          <PlusIcon data-icon="inline-start" aria-hidden="true" />
-          <span className="hidden sm:inline">Add</span>
-        </Button>
       </div>
     </header>
   )
