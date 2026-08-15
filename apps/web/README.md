@@ -1,21 +1,5 @@
-# TanStack Start + shadcn/ui
+# Stillroom Web
 
-This is a template for a new TanStack Start project with React, TypeScript, and shadcn/ui.
+The TanStack Start web workspace for Stillroom. It contains the responsive library interface, Google OAuth routes, protected media delivery, and Google Drive folder operations.
 
-## Adding components
-
-To add components to your app, run the following command:
-
-```bash
-npx shadcn@latest add button
-```
-
-This will place the ui components in the `components` directory.
-
-## Using components
-
-To use the components in your app, import them as follows:
-
-```tsx
-import { Button } from "@/components/ui/button";
-```
+See the [workspace README](../../README.md) for setup and commands.

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Stillroom">
+  <rect width="128" height="128" rx="28" fill="#7c22e8"/>
+  <path d="M35 30h58c5 0 9 4 9 9v12H26V39c0-5 4-9 9-9Z" fill="#f8f2ff" opacity=".9"/>
+  <path d="M29 56h70v40c0 6-5 11-11 11H40c-6 0-11-5-11-11V56Z" fill="#f8f2ff"/>
+  <path d="M64 68v24m0 0L53 81m11 11 11-11" fill="none" stroke="#7c22e8" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
