@@ -7,7 +7,7 @@ export const captureDraftSchema = z.object({
   sourceUrl: z.url(),
   pageUrl: z.url(),
   title: z.string().trim().min(1).max(240),
-  thumbnailUrl: z.url().optional(),
+  thumbnailUrl: z.union([z.url(), z.string().startsWith("/")]).optional(),
 })
 
 export const libraryFolderSchema = z.object({
@@ -23,7 +23,7 @@ export const libraryItemSchema = z.object({
   kind: mediaKindSchema,
   title: z.string().trim().min(1).max(240),
   sourceUrl: z.url(),
-  thumbnailUrl: z.url(),
+  thumbnailUrl: z.union([z.url(), z.string().startsWith("/")]).optional(),
   sourceLabel: z.string().trim().min(1).max(120),
   width: z.int().positive().optional(),
   height: z.int().positive().optional(),
