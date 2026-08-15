@@ -7,7 +7,9 @@ const FOLDER_MIME_TYPE = "application/vnd.google-apps.folder"
 const ROOT_PROPERTY_KEY = "stillroomRole"
 const ROOT_PROPERTY_VALUE = "root"
 const FILE_FIELDS =
-  "files(id,name,mimeType,parents,thumbnailLink,webContentLink,appProperties,imageMediaMetadata,videoMediaMetadata,createdTime)"
+  "files(id,name,mimeType,parents,description,thumbnailLink,webContentLink,webViewLink,appProperties,imageMediaMetadata,videoMediaMetadata,createdTime)"
+
+export { FOLDER_MIME_TYPE }
 
 export function createDriveClient(refreshToken: string) {
   const auth = createGoogleOAuthClient()
@@ -49,6 +51,7 @@ export async function listFolderChildren(
   const response = await drive.files.list({
     fields: FILE_FIELDS,
     orderBy: "folder,name_natural",
+    pageSize: 1000,
     q: buildFolderChildrenQuery(folderId),
     spaces: "drive",
   })
@@ -70,6 +73,35 @@ export async function createFolder(
       name,
       parents: [parentFolderId],
     },
+  })
+
+  return response.data
+}
+
+export async function moveFile(
+  refreshToken: string,
+  fileId: string,
+  destinationFolderId: string
+) {
+  const drive = createDriveClient(refreshToken)
+  const currentFile = await drive.files.get({ fileId, fields: "parents" })
+  const previousParents = currentFile.data.parents?.join(",")
+  const response = await drive.files.update({
+    addParents: destinationFolderId,
+    fileId,
+    fields: "id,name,mimeType,parents,appProperties,createdTime",
+    removeParents: previousParents,
+  })
+
+  return response.data
+}
+
+export async function trashFile(refreshToken: string, fileId: string) {
+  const drive = createDriveClient(refreshToken)
+  const response = await drive.files.update({
+    fileId,
+    fields: "id,trashed",
+    requestBody: { trashed: true },
   })
 
   return response.data

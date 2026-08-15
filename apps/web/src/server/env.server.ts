@@ -8,6 +8,8 @@ const serverEnvSchema = z.object({
   SESSION_SECRET: z.string().min(32),
 })
 
+const sessionEnvSchema = serverEnvSchema.pick({ SESSION_SECRET: true })
+
 export type ServerEnv = z.infer<typeof serverEnvSchema>
 
 export function parseServerEnv(environment: NodeJS.ProcessEnv): ServerEnv {
@@ -16,4 +18,8 @@ export function parseServerEnv(environment: NodeJS.ProcessEnv): ServerEnv {
 
 export const getServerEnv = createServerOnlyFn(() =>
   parseServerEnv(process.env)
+)
+
+export const getSessionSecret = createServerOnlyFn(
+  () => sessionEnvSchema.parse(process.env).SESSION_SECRET
 )

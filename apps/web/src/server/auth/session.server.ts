@@ -1,6 +1,6 @@
 import { useSession } from "@tanstack/react-start/server"
 
-import { getServerEnv } from "../env.server"
+import { getSessionSecret } from "../env.server"
 
 export type StillroomSessionData = {
   googleRefreshToken?: string
@@ -8,11 +8,9 @@ export type StillroomSessionData = {
 }
 
 export function useStillroomSession() {
-  const environment = getServerEnv()
-
   return useSession<StillroomSessionData>({
     name: "stillroom-session",
-    password: environment.SESSION_SECRET,
+    password: getSessionSecret(),
     cookie: {
       httpOnly: true,
       sameSite: "lax",
