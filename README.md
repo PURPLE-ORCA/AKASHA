@@ -34,6 +34,8 @@ Create a Chrome Extension OAuth client for the capture extension and add its cli
 cp extension/.env.example extension/.env.local
 ```
 
+For Chromium browsers that do not expose Chrome profile authentication, also add the web OAuth client ID as `WXT_GOOGLE_WEB_CLIENT_ID` and register `https://cooplhaddmnookoploidbemfjdacgnoh.chromiumapp.org/oauth2` as an authorized redirect URI on that web client.
+
 Both clients must request the `drive.file` scope. This limits Stillroom to files and folders it creates or opens through the app.
 
 ## Development

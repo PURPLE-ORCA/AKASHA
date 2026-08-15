@@ -1,4 +1,5 @@
 import type { CaptureDraft } from "@stillroom/contracts"
+import { getGoogleAccessToken } from "./google-oauth"
 
 const DRIVE_API_URL = "https://www.googleapis.com/drive/v3"
 const DRIVE_UPLOAD_URL = "https://www.googleapis.com/upload/drive/v3"
@@ -42,13 +43,7 @@ export async function saveCapture(draft: CaptureDraft, folderId: string) {
 }
 
 async function getAccessToken(interactive: boolean) {
-  const result = await browser.identity.getAuthToken({ interactive })
-
-  if (!result?.token) {
-    throw new Error("Google authorization is required.")
-  }
-
-  return result.token
+  return getGoogleAccessToken(interactive)
 }
 
 async function ensureStillroomRoot(accessToken: string) {
