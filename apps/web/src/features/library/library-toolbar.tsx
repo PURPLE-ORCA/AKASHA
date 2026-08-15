@@ -36,7 +36,6 @@ import { LibrarySidebar } from "./library-sidebar"
 type LibraryToolbarProps = {
   folders: FolderTreeNode[]
   folderPath: string[]
-  isConnected: boolean
   onCreateFolder: (name: string) => Promise<void>
   searchQuery: string
   selectedFolderId: string
@@ -47,7 +46,6 @@ type LibraryToolbarProps = {
 export function LibraryToolbar({
   folders,
   folderPath,
-  isConnected,
   onCreateFolder,
   searchQuery,
   selectedFolderId,
@@ -81,7 +79,6 @@ export function LibraryToolbar({
               <SheetTitle>Stillroom folders</SheetTitle>
               <LibrarySidebar
                 folders={folders}
-                isConnected={isConnected}
                 onCreateFolder={onCreateFolder}
                 selectedFolderId={selectedFolderId}
                 selectedFolderName={selectedFolderName}

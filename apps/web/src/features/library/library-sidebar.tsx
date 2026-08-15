@@ -1,14 +1,12 @@
 import type { FolderTreeNode } from "@stillroom/contracts"
 
 import { StillroomBrand } from "@/components/stillroom/brand"
-import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { FolderTree } from "./folder-tree"
 import { NewFolderDialog } from "./library-action-dialogs"
 
 type LibrarySidebarProps = {
   folders: FolderTreeNode[]
-  isConnected: boolean
   onCreateFolder: (name: string) => Promise<void>
   selectedFolderId: string
   selectedFolderName: string
@@ -16,7 +14,6 @@ type LibrarySidebarProps = {
 
 export function LibrarySidebar({
   folders,
-  isConnected,
   onCreateFolder,
   selectedFolderId,
   selectedFolderName,
@@ -26,7 +23,7 @@ export function LibrarySidebar({
       <StillroomBrand />
       <div className="mt-8">
         <NewFolderDialog
-          disabled={!isConnected}
+          disabled={false}
           onCreate={onCreateFolder}
           parentName={selectedFolderName}
         />
@@ -38,24 +35,10 @@ export function LibrarySidebar({
         <FolderTree folders={folders} selectedFolderId={selectedFolderId} />
       </div>
       <div className="pt-5">
-        {isConnected ? (
-          <p className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span
-              className="size-2 rounded-full bg-primary"
-              aria-hidden="true"
-            />
-            Library connected
-          </p>
-        ) : (
-          <Button
-            nativeButton={false}
-            render={<a href="/api/auth/google" />}
-            size="lg"
-            variant="outline"
-          >
-            Connect library
-          </Button>
-        )}
+        <p className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="size-2 rounded-full bg-primary" aria-hidden="true" />
+          Library connected
+        </p>
       </div>
     </div>
   )

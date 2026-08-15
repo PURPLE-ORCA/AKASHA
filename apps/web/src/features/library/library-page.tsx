@@ -2,28 +2,26 @@ import { useEffect, useMemo, useState } from "react"
 import { buildFolderTree, getFolderPath } from "@stillroom/contracts"
 
 import type { DriveLibrarySnapshot } from "@/server/drive/library.server"
-import { libraryFolders, libraryItems } from "./library-fixtures"
 import { MoveItemsDialog, RemoveItemsDialog } from "./library-action-dialogs"
 import {
   createLibraryFolder,
   moveLibraryItems,
   removeLibraryItems,
 } from "./library.functions"
+import { LibraryEmptyState } from "./library-empty-state"
 import { LibrarySidebar } from "./library-sidebar"
 import { LibraryToolbar } from "./library-toolbar"
 import { MediaGallery } from "./media-gallery"
 import { SelectionBar } from "./selection-bar"
 
 type LibraryPageProps = {
-  initialSnapshot?: DriveLibrarySnapshot
-  isConnected?: boolean
+  initialSnapshot: DriveLibrarySnapshot
   onRefresh?: () => Promise<void>
   requestedFolderId?: string
 }
 
 export function LibraryPage({
   initialSnapshot,
-  isConnected = false,
   onRefresh = async () => {},
   requestedFolderId,
 }: LibraryPageProps) {
@@ -32,8 +30,7 @@ export function LibraryPage({
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set())
   const [moveItemIds, setMoveItemIds] = useState<string[]>([])
   const [removeItemIds, setRemoveItemIds] = useState<string[]>([])
-  const folders = initialSnapshot?.folders ?? libraryFolders
-  const items = initialSnapshot?.items ?? libraryItems
+  const { folders, items } = initialSnapshot
   const selectedFolderId = getSelectedFolderId(
     folders,
     initialSnapshot,
@@ -58,6 +55,7 @@ export function LibraryPage({
     })
   }, [items, searchQuery, selectedFolderId])
   const selectedFolderName = folderPath.at(-1)?.name ?? "Stillroom"
+  const isLibraryEmpty = folders.length === 0 && items.length === 0
 
   useEffect(() => {
     setIsHydrated(true)
@@ -113,7 +111,6 @@ export function LibraryPage({
       <aside className="hidden h-svh border-r border-sidebar-border lg:sticky lg:top-0 lg:block">
         <LibrarySidebar
           folders={folderTree}
-          isConnected={isConnected}
           onCreateFolder={createFolder}
           selectedFolderId={selectedFolderId}
           selectedFolderName={selectedFolderName}
@@ -123,14 +120,13 @@ export function LibraryPage({
         <LibraryToolbar
           folders={folderTree}
           folderPath={folderPath.map((folder) => folder.name)}
-          isConnected={isConnected}
           onCreateFolder={createFolder}
           onSearchChange={setSearchQuery}
           searchQuery={searchQuery}
           selectedFolderId={selectedFolderId}
           selectedFolderName={selectedFolderName}
         />
-        <main className="px-4 py-6 md:px-6 lg:px-8" id="library-content">
+        <main className="px-4 py-6 md:px-6 lg:px-8" id="main-content">
           <div className="mb-6 flex items-end justify-between gap-4">
             <div>
               <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
@@ -142,18 +138,20 @@ export function LibraryPage({
               </p>
             </div>
           </div>
-          <MediaGallery
-            actionsDisabled={!isConnected}
-            items={visibleItems}
-            onItemSelectionChange={updateItemSelection}
-            onMoveItems={setMoveItemIds}
-            onRemoveItems={setRemoveItemIds}
-            selectedItemIds={selectedItemIds}
-          />
+          {isLibraryEmpty ? (
+            <LibraryEmptyState onCreateFolder={createFolder} />
+          ) : (
+            <MediaGallery
+              items={visibleItems}
+              onItemSelectionChange={updateItemSelection}
+              onMoveItems={setMoveItemIds}
+              onRemoveItems={setRemoveItemIds}
+              selectedItemIds={selectedItemIds}
+            />
+          )}
         </main>
       </div>
       <SelectionBar
-        disabled={!isConnected}
         onClear={() => setSelectedItemIds(new Set())}
         onMove={() => setMoveItemIds([...selectedItemIds])}
         onRemove={() => setRemoveItemIds([...selectedItemIds])}
@@ -182,7 +180,7 @@ export function LibraryPage({
 
 function getSelectedFolderId(
   folders: DriveLibrarySnapshot["folders"],
-  snapshot?: DriveLibrarySnapshot,
+  snapshot: DriveLibrarySnapshot,
   requestedFolderId?: string
 ) {
   if (
@@ -190,10 +188,6 @@ function getSelectedFolderId(
     folders.some((folder) => folder.id === requestedFolderId)
   ) {
     return requestedFolderId
-  }
-
-  if (!snapshot) {
-    return "bento"
   }
 
   return folders[0]?.id ?? snapshot.rootFolderId

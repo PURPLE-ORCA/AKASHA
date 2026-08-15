@@ -28,7 +28,6 @@ type MediaGalleryProps = {
   onItemSelectionChange: (itemId: string, selected: boolean) => void
   onMoveItems: (itemIds: string[]) => void
   onRemoveItems: (itemIds: string[]) => void
-  actionsDisabled: boolean
 }
 
 export function MediaGallery({
@@ -37,7 +36,6 @@ export function MediaGallery({
   onItemSelectionChange,
   onMoveItems,
   onRemoveItems,
-  actionsDisabled,
 }: MediaGalleryProps) {
   if (items.length === 0) {
     return (
@@ -61,7 +59,6 @@ export function MediaGallery({
         <MediaCard
           item={item}
           key={item.id}
-          actionsDisabled={actionsDisabled}
           onMove={() => onMoveItems([item.id])}
           onRemove={() => onRemoveItems([item.id])}
           onSelectionChange={onItemSelectionChange}
@@ -75,7 +72,6 @@ export function MediaGallery({
 type MediaCardProps = {
   item: LibraryItem
   selected: boolean
-  actionsDisabled: boolean
   onMove: () => void
   onRemove: () => void
   onSelectionChange: (itemId: string, selected: boolean) => void
@@ -84,7 +80,6 @@ type MediaCardProps = {
 function MediaCard({
   item,
   selected,
-  actionsDisabled,
   onMove,
   onRemove,
   onSelectionChange,
@@ -173,16 +168,12 @@ function MediaCard({
               <ArrowSquareOutIcon aria-hidden="true" />
               Open source
             </DropdownMenuItem>
-            <DropdownMenuItem disabled={actionsDisabled} onClick={onMove}>
+            <DropdownMenuItem onClick={onMove}>
               <FolderSimpleIcon aria-hidden="true" />
               Move to folder
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              disabled={actionsDisabled}
-              onClick={onRemove}
-              variant="destructive"
-            >
+            <DropdownMenuItem onClick={onRemove} variant="destructive">
               <TrashIcon aria-hidden="true" />
               Remove
             </DropdownMenuItem>

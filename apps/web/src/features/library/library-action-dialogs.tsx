@@ -37,12 +37,14 @@ type NewFolderDialogProps = {
   disabled: boolean
   parentName: string
   onCreate: (name: string) => Promise<void>
+  triggerLabel?: string
 }
 
 export function NewFolderDialog({
   disabled,
   parentName,
   onCreate,
+  triggerLabel = "New folder",
 }: NewFolderDialogProps) {
   const [name, setName] = useState("")
   const [error, setError] = useState<string>()
@@ -69,7 +71,7 @@ export function NewFolderDialog({
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger render={<Button size="lg" disabled={disabled} />}>
         <PlusIcon data-icon="inline-start" aria-hidden="true" />
-        New folder
+        {triggerLabel}
       </DialogTrigger>
       <DialogContent>
         <form onSubmit={submit}>
