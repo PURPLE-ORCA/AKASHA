@@ -1,15 +1,15 @@
-import { defineConfig } from 'wxt';
+import { defineConfig } from "wxt"
 
-const driveScope = 'https://www.googleapis.com/auth/drive.file';
-const googleClientId = process.env.WXT_GOOGLE_CLIENT_ID;
+const driveScope = "https://www.googleapis.com/auth/drive.file"
+const googleClientId = process.env.WXT_GOOGLE_CLIENT_ID
 
 export default defineConfig({
-  modules: ['@wxt-dev/module-react'],
+  modules: ["@wxt-dev/module-react"],
   manifest: {
-    name: 'Stillroom Capture',
-    description: 'Capture visual inspiration into your Stillroom library.',
-    permissions: ['contextMenus', 'identity', 'notifications', 'storage'],
-    host_permissions: ['<all_urls>'],
+    name: "Stillroom Capture",
+    description: "Capture visual inspiration into your Stillroom library.",
+    permissions: ["contextMenus", "identity", "notifications", "storage"],
+    host_permissions: ["<all_urls>"],
     ...(googleClientId
       ? {
           oauth2: {
@@ -19,4 +19,4 @@ export default defineConfig({
         }
       : {}),
   },
-});
+})

@@ -12,8 +12,13 @@
     "check": "bun run --filter '*' check",
     "dev:web": "bun run --cwd apps/web dev",
     "dev:extension": "bun run --cwd extension dev",
-    "lint": "bun run --filter '*' lint",
+    "e2e": "bun run --cwd apps/web e2e",
+    "lint": "bun run --cwd apps/web lint && biome check extension packages/contracts",
     "test": "bun run --filter '*' test",
     "typecheck": "bun run --filter '*' typecheck"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.8",
+    "@playwright/test": "^1.62.1"
   }
 }

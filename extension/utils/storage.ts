@@ -1,12 +1,10 @@
-import { storage } from '#imports';
-import type { CaptureDraft } from '@stillroom/contracts';
+import type { CaptureDraft } from "@stillroom/contracts"
+import { storage } from "#imports"
 
-export const captureDraftStorage = storage.defineItem<CaptureDraft | null>(
-  'local:capture-draft',
-  { fallback: null },
-);
+export const captureDraftStorage = storage.defineItem<CaptureDraft | null>("local:capture-draft", {
+  fallback: null,
+})
 
-export const selectedFolderStorage = storage.defineItem<string | null>(
-  'local:selected-folder',
-  { fallback: null },
-);
+export const selectedFolderStorage = storage.defineItem<string | null>("local:selected-folder", {
+  fallback: null,
+})

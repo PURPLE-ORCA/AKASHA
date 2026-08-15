@@ -6,7 +6,7 @@ export type FolderTreeNode = LibraryFolder & {
 
 export function buildFolderTree(folders: LibraryFolder[]): FolderTreeNode[] {
   const nodes = new Map<string, FolderTreeNode>(
-    folders.map((folder) => [folder.id, { ...folder, children: [] }]),
+    folders.map((folder) => [folder.id, { ...folder, children: [] }])
   )
   const roots: FolderTreeNode[] = []
 
@@ -23,10 +23,7 @@ export function buildFolderTree(folders: LibraryFolder[]): FolderTreeNode[] {
   return roots
 }
 
-export function getFolderPath(
-  folders: LibraryFolder[],
-  folderId: string,
-): LibraryFolder[] {
+export function getFolderPath(folders: LibraryFolder[], folderId: string): LibraryFolder[] {
   const foldersById = new Map(folders.map((folder) => [folder.id, folder]))
   const path: LibraryFolder[] = []
   const visitedFolderIds = new Set<string>()
@@ -35,9 +32,7 @@ export function getFolderPath(
   while (currentFolder && !visitedFolderIds.has(currentFolder.id)) {
     path.unshift(currentFolder)
     visitedFolderIds.add(currentFolder.id)
-    currentFolder = currentFolder.parentId
-      ? foldersById.get(currentFolder.parentId)
-      : undefined
+    currentFolder = currentFolder.parentId ? foldersById.get(currentFolder.parentId) : undefined
   }
 
   return path

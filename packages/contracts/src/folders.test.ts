@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest"
-
-import type { LibraryFolder } from "./library"
 import { buildFolderTree, getFolderPath } from "./folders"
+import type { LibraryFolder } from "./library"
 
 const folders: LibraryFolder[] = [
   { id: "design", name: "Design aspirations", parentId: null },

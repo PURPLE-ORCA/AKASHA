@@ -28,6 +28,7 @@ export function LibraryPage({
   requestedFolderId,
 }: LibraryPageProps) {
   const [searchQuery, setSearchQuery] = useState("")
+  const [isHydrated, setIsHydrated] = useState(false)
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set())
   const [moveItemIds, setMoveItemIds] = useState<string[]>([])
   const [removeItemIds, setRemoveItemIds] = useState<string[]>([])
@@ -57,6 +58,10 @@ export function LibraryPage({
     })
   }, [items, searchQuery, selectedFolderId])
   const selectedFolderName = folderPath.at(-1)?.name ?? "Stillroom"
+
+  useEffect(() => {
+    setIsHydrated(true)
+  }, [])
 
   useEffect(() => {
     setSelectedItemIds(new Set())
@@ -101,7 +106,10 @@ export function LibraryPage({
   }
 
   return (
-    <div className="min-h-svh bg-background lg:grid lg:grid-cols-[17rem_minmax(0,1fr)]">
+    <div
+      className="min-h-svh bg-background lg:grid lg:grid-cols-[17rem_minmax(0,1fr)]"
+      data-hydrated={isHydrated}
+    >
       <aside className="hidden h-svh border-r border-sidebar-border lg:sticky lg:top-0 lg:block">
         <LibrarySidebar
           folders={folderTree}

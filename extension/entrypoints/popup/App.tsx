@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import {
   ArrowClockwiseIcon,
   CheckCircleIcon,
@@ -6,116 +5,104 @@ import {
   ImageIcon,
   PlayIcon,
   SignInIcon,
-} from '@phosphor-icons/react';
-import type { CaptureDraft } from '@stillroom/contracts';
+} from "@phosphor-icons/react"
+import type { CaptureDraft } from "@stillroom/contracts"
+import { useCallback, useEffect, useState } from "react"
+import type { FolderOption } from "@/utils/google-drive"
+import { connectDrive, listFolderOptions, saveCapture } from "@/utils/google-drive"
+import { captureDraftStorage, selectedFolderStorage } from "@/utils/storage"
+import "./App.css"
 
-import {
-  connectDrive,
-  listFolderOptions,
-  saveCapture,
-} from '@/utils/google-drive';
-import type { FolderOption } from '@/utils/google-drive';
-import {
-  captureDraftStorage,
-  selectedFolderStorage,
-} from '@/utils/storage';
-import './App.css';
-
-type SaveStatus = 'idle' | 'saving' | 'saved';
+type SaveStatus = "idle" | "saving" | "saved"
 
 function App() {
-  const [draft, setDraft] = useState<CaptureDraft | null>(null);
-  const [folders, setFolders] = useState<FolderOption[]>([]);
-  const [selectedFolderId, setSelectedFolderId] = useState('');
-  const [isConnected, setIsConnected] = useState(false);
-  const [isLoadingFolders, setIsLoadingFolders] = useState(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  const [draft, setDraft] = useState<CaptureDraft | null>(null)
+  const [folders, setFolders] = useState<FolderOption[]>([])
+  const [selectedFolderId, setSelectedFolderId] = useState("")
+  const [isConnected, setIsConnected] = useState(false)
+  const [isLoadingFolders, setIsLoadingFolders] = useState(true)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle")
+
+  const applyFolders = useCallback(
+    (availableFolders: FolderOption[], storedFolderId: string | null) => {
+      const storedFolderExists = availableFolders.some((folder) => folder.id === storedFolderId)
+      const nextFolderId =
+        storedFolderExists && storedFolderId ? storedFolderId : (availableFolders[0]?.id ?? "")
+
+      setFolders(availableFolders)
+      setSelectedFolderId(nextFolderId)
+    },
+    []
+  )
 
   useEffect(() => {
-    void initializePopup();
+    async function initializePopup() {
+      const [storedDraft, storedFolderId] = await Promise.all([
+        captureDraftStorage.getValue(),
+        selectedFolderStorage.getValue(),
+      ])
+      setDraft(storedDraft)
+
+      try {
+        const availableFolders = await listFolderOptions(false)
+        applyFolders(availableFolders, storedFolderId)
+        setIsConnected(true)
+      } catch {
+        setIsConnected(false)
+      } finally {
+        setIsLoadingFolders(false)
+      }
+    }
+
+    void initializePopup()
 
     return captureDraftStorage.watch((nextDraft) => {
-      setDraft(nextDraft);
-      setSaveStatus('idle');
-      setErrorMessage(null);
-    });
-  }, []);
-
-  async function initializePopup() {
-    const [storedDraft, storedFolderId] = await Promise.all([
-      captureDraftStorage.getValue(),
-      selectedFolderStorage.getValue(),
-    ]);
-    setDraft(storedDraft);
-
-    try {
-      const availableFolders = await listFolderOptions(false);
-      applyFolders(availableFolders, storedFolderId);
-      setIsConnected(true);
-    } catch {
-      setIsConnected(false);
-    } finally {
-      setIsLoadingFolders(false);
-    }
-  }
+      setDraft(nextDraft)
+      setSaveStatus("idle")
+      setErrorMessage(null)
+    })
+  }, [applyFolders])
 
   async function handleConnect() {
-    setIsLoadingFolders(true);
-    setErrorMessage(null);
+    setIsLoadingFolders(true)
+    setErrorMessage(null)
 
     try {
-      const availableFolders = await connectDrive();
-      applyFolders(availableFolders, await selectedFolderStorage.getValue());
-      setIsConnected(true);
+      const availableFolders = await connectDrive()
+      applyFolders(availableFolders, await selectedFolderStorage.getValue())
+      setIsConnected(true)
     } catch {
-      setErrorMessage('Stillroom could not connect. Check your account and try again.');
+      setErrorMessage("Stillroom could not connect. Check your account and try again.")
     } finally {
-      setIsLoadingFolders(false);
+      setIsLoadingFolders(false)
     }
   }
 
   async function handleSave() {
     if (!draft || !selectedFolderId) {
-      return;
+      return
     }
 
-    setSaveStatus('saving');
-    setErrorMessage(null);
+    setSaveStatus("saving")
+    setErrorMessage(null)
 
     try {
-      await saveCapture(draft, selectedFolderId);
-      await captureDraftStorage.removeValue();
-      setSaveStatus('saved');
-      setDraft(null);
+      await saveCapture(draft, selectedFolderId)
+      await captureDraftStorage.removeValue()
+      setSaveStatus("saved")
+      setDraft(null)
     } catch (error) {
-      setSaveStatus('idle');
+      setSaveStatus("idle")
       setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : 'Stillroom could not save this item. Try again.',
-      );
+        error instanceof Error ? error.message : "Stillroom could not save this item. Try again."
+      )
     }
-  }
-
-  function applyFolders(
-    availableFolders: FolderOption[],
-    storedFolderId: string | null,
-  ) {
-    const storedFolderExists = availableFolders.some(
-      (folder) => folder.id === storedFolderId,
-    );
-    const nextFolderId = storedFolderExists
-      ? storedFolderId!
-      : (availableFolders[0]?.id ?? '');
-
-    setFolders(availableFolders);
-    setSelectedFolderId(nextFolderId);
   }
 
   async function handleFolderChange(folderId: string) {
-    setSelectedFolderId(folderId);
-    await selectedFolderStorage.setValue(folderId);
+    setSelectedFolderId(folderId)
+    await selectedFolderStorage.setValue(folderId)
   }
 
   return (
@@ -150,10 +137,10 @@ function App() {
             ) : (
               <SignInIcon aria-hidden="true" />
             )}
-            {isLoadingFolders ? 'Connecting…' : 'Connect library'}
+            {isLoadingFolders ? "Connecting…" : "Connect library"}
           </button>
         </section>
-      ) : saveStatus === 'saved' ? (
+      ) : saveStatus === "saved" ? (
         <section className="success-card" aria-live="polite">
           <CheckCircleIcon aria-hidden="true" weight="fill" />
           <div>
@@ -183,18 +170,18 @@ function App() {
           </div>
           <button
             className="primary-button"
-            disabled={!selectedFolderId || saveStatus === 'saving'}
+            disabled={!selectedFolderId || saveStatus === "saving"}
             onClick={handleSave}
             type="button"
           >
-            {saveStatus === 'saving' ? (
+            {saveStatus === "saving" ? (
               <ArrowClockwiseIcon className="spin" aria-hidden="true" />
-            ) : draft.kind === 'video' ? (
+            ) : draft.kind === "video" ? (
               <PlayIcon aria-hidden="true" weight="fill" />
             ) : (
               <ImageIcon aria-hidden="true" />
             )}
-            {saveStatus === 'saving' ? 'Saving…' : 'Save capture'}
+            {saveStatus === "saving" ? "Saving…" : "Save capture"}
           </button>
         </>
       ) : (
@@ -215,11 +202,11 @@ function App() {
         </p>
       ) : null}
     </main>
-  );
+  )
 }
 
 function CapturePreview({ draft }: { draft: CaptureDraft }) {
-  const sourceLabel = new URL(draft.pageUrl).hostname.replace(/^www\./, '');
+  const sourceLabel = new URL(draft.pageUrl).hostname.replace(/^www\./, "")
 
   return (
     <section className="capture-preview" aria-label="Current capture">
@@ -229,7 +216,7 @@ function CapturePreview({ draft }: { draft: CaptureDraft }) {
         ) : (
           <PlayIcon aria-hidden="true" weight="fill" />
         )}
-        {draft.kind === 'video' ? (
+        {draft.kind === "video" ? (
           <span className="video-badge">
             <PlayIcon aria-hidden="true" weight="fill" /> Video
           </span>
@@ -240,7 +227,7 @@ function CapturePreview({ draft }: { draft: CaptureDraft }) {
         <p>{sourceLabel}</p>
       </div>
     </section>
-  );
+  )
 }
 
-export default App;
+export default App
