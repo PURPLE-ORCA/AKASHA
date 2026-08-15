@@ -12,6 +12,7 @@
         "@fontsource-variable/manrope": "^5.3.0",
         "@fontsource-variable/oxanium": "^5.3.0",
         "@phosphor-icons/react": "^2.1.10",
+        "@stillroom/contracts": "workspace:*",
         "@tailwindcss/vite": "^4",
         "@tanstack/react-devtools": "latest",
         "@tanstack/react-router": "latest",
@@ -43,6 +44,16 @@
         "prettier-plugin-tailwindcss": "^0.8.0",
         "typescript": "^6",
         "vite": "^8",
+        "vitest": "^4",
+      },
+    },
+    "packages/contracts": {
+      "name": "@stillroom/contracts",
+      "dependencies": {
+        "zod": "^4.3.6",
+      },
+      "devDependencies": {
+        "typescript": "^6",
         "vitest": "^4",
       },
     },
@@ -311,6 +322,8 @@
     "@solid-primitives/utils": ["@solid-primitives/utils@6.4.1", "", { "peerDependencies": { "solid-js": "^1.6.12" } }, "sha512-ISSB5QX1qP2ynrheIpYwc4oKR5Ny4siNuUyf1qZniy+Il+p/PtDB0QK1Dnle8noiHpwRD3gpPdubOC3qI/Zamg=="],
 
     "@standard-schema/spec": ["@standard-schema/spec@1.1.0", "", {}, "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="],
+
+    "@stillroom/contracts": ["@stillroom/contracts@workspace:packages/contracts"],
 
     "@stylistic/eslint-plugin": ["@stylistic/eslint-plugin@5.10.0", "", { "dependencies": { "@eslint-community/eslint-utils": "^4.9.1", "@typescript-eslint/types": "^8.56.0", "eslint-visitor-keys": "^4.2.1", "espree": "^10.4.0", "estraverse": "^5.3.0", "picomatch": "^4.0.3" }, "peerDependencies": { "eslint": "^9.0.0 || ^10.0.0" } }, "sha512-nPK52ZHvot8Ju/0A4ucSX1dcPV2/1clx0kLcH5wDmrE4naKso7TUC/voUyU1O9OTKTrR6MYip6LP0ogEMQ9jPQ=="],
 
