@@ -1,7 +1,6 @@
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router"
-import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools"
-import { TanStackDevtools } from "@tanstack/react-devtools"
 
+import { TooltipProvider } from "@/components/ui/tooltip"
 import appCss from "../styles.css?url"
 
 export const Route = createRootRoute({
@@ -15,7 +14,11 @@ export const Route = createRootRoute({
         content: "width=device-width, initial-scale=1",
       },
       {
-        title: "TanStack Start Starter",
+        title: "Stillroom — Your visual library",
+      },
+      {
+        name: "description",
+        content: "Capture and organize the visual ideas you want to keep.",
       },
     ],
     links: [
@@ -26,9 +29,22 @@ export const Route = createRootRoute({
     ],
   }),
   notFoundComponent: () => (
-    <main className="container mx-auto p-4 pt-16">
-      <h1>404</h1>
-      <p>The requested page could not be found.</p>
+    <main className="grid min-h-svh place-items-center bg-background px-6 text-center">
+      <div>
+        <p className="text-sm font-medium text-primary">404</p>
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight">
+          This room is empty
+        </h1>
+        <p className="mt-3 text-muted-foreground">
+          The page you requested could not be found.
+        </p>
+        <a
+          className="mt-6 inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline"
+          href="/"
+        >
+          Return to your library
+        </a>
+      </div>
     </main>
   ),
   shellComponent: RootDocument,
@@ -41,18 +57,13 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        {children}
-        <TanStackDevtools
-          config={{
-            position: "bottom-right",
-          }}
-          plugins={[
-            {
-              name: "Tanstack Router",
-              render: <TanStackRouterDevtoolsPanel />,
-            },
-          ]}
-        />
+        <a
+          className="sr-only z-50 rounded-md bg-primary px-4 py-2 text-primary-foreground focus:not-sr-only focus:fixed focus:top-4 focus:left-4"
+          href="#library-content"
+        >
+          Skip to library
+        </a>
+        <TooltipProvider>{children}</TooltipProvider>
         <Scripts />
       </body>
     </html>
