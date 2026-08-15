@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiAuthGoogleRouteImport } from './routes/api/auth/google'
+import { Route as ApiMediaFileIdRouteImport } from './routes/api/media/$fileId'
 import { Route as ApiAuthGoogleCallbackRouteImport } from './routes/api/auth/google.callback'
 
 const IndexRoute = IndexRouteImport.update({
@@ -23,6 +24,11 @@ const ApiAuthGoogleRoute = ApiAuthGoogleRouteImport.update({
   path: '/api/auth/google',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMediaFileIdRoute = ApiMediaFileIdRouteImport.update({
+  id: '/api/media/$fileId',
+  path: '/api/media/$fileId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthGoogleCallbackRoute = ApiAuthGoogleCallbackRouteImport.update({
   id: '/callback',
   path: '/callback',
@@ -32,30 +38,47 @@ const ApiAuthGoogleCallbackRoute = ApiAuthGoogleCallbackRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/auth/google': typeof ApiAuthGoogleRouteWithChildren
+  '/api/media/$fileId': typeof ApiMediaFileIdRoute
   '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/auth/google': typeof ApiAuthGoogleRouteWithChildren
+  '/api/media/$fileId': typeof ApiMediaFileIdRoute
   '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/auth/google': typeof ApiAuthGoogleRouteWithChildren
+  '/api/media/$fileId': typeof ApiMediaFileIdRoute
   '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/auth/google' | '/api/auth/google/callback'
+  fullPaths:
+    | '/'
+    | '/api/auth/google'
+    | '/api/media/$fileId'
+    | '/api/auth/google/callback'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/auth/google' | '/api/auth/google/callback'
-  id: '__root__' | '/' | '/api/auth/google' | '/api/auth/google/callback'
+  to:
+    | '/'
+    | '/api/auth/google'
+    | '/api/media/$fileId'
+    | '/api/auth/google/callback'
+  id:
+    | '__root__'
+    | '/'
+    | '/api/auth/google'
+    | '/api/media/$fileId'
+    | '/api/auth/google/callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiAuthGoogleRoute: typeof ApiAuthGoogleRouteWithChildren
+  ApiMediaFileIdRoute: typeof ApiMediaFileIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -72,6 +95,13 @@ declare module '@tanstack/react-router' {
       path: '/api/auth/google'
       fullPath: '/api/auth/google'
       preLoaderRoute: typeof ApiAuthGoogleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/media/$fileId': {
+      id: '/api/media/$fileId'
+      path: '/api/media/$fileId'
+      fullPath: '/api/media/$fileId'
+      preLoaderRoute: typeof ApiMediaFileIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/auth/google/callback': {
@@ -99,6 +129,7 @@ const ApiAuthGoogleRouteWithChildren = ApiAuthGoogleRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiAuthGoogleRoute: ApiAuthGoogleRouteWithChildren,
+  ApiMediaFileIdRoute: ApiMediaFileIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

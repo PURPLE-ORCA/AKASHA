@@ -1,26 +1,36 @@
 import { useMemo, useState } from "react"
 import { buildFolderTree, getFolderPath } from "@stillroom/contracts"
 
+import type { DriveLibrarySnapshot } from "@/server/drive/library.server"
 import { libraryFolders, libraryItems } from "./library-fixtures"
 import { LibrarySidebar } from "./library-sidebar"
 import { LibraryToolbar } from "./library-toolbar"
 import { MediaGallery } from "./media-gallery"
 import { SelectionBar } from "./selection-bar"
 
-const selectedFolderId = "bento"
+type LibraryPageProps = {
+  initialSnapshot?: DriveLibrarySnapshot
+  isConnected?: boolean
+}
 
-export function LibraryPage() {
+export function LibraryPage({
+  initialSnapshot,
+  isConnected = false,
+}: LibraryPageProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set())
-  const folderTree = useMemo(() => buildFolderTree(libraryFolders), [])
+  const folders = initialSnapshot?.folders ?? libraryFolders
+  const items = initialSnapshot?.items ?? libraryItems
+  const selectedFolderId = getInitialFolderId(initialSnapshot)
+  const folderTree = useMemo(() => buildFolderTree(folders), [folders])
   const folderPath = useMemo(
-    () => getFolderPath(libraryFolders, selectedFolderId),
-    []
+    () => getFolderPath(folders, selectedFolderId),
+    [folders, selectedFolderId]
   )
   const visibleItems = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLocaleLowerCase()
 
-    return libraryItems.filter((item) => {
+    return items.filter((item) => {
       const isInFolder = item.folderId === selectedFolderId
       const matchesQuery =
         normalizedQuery.length === 0 ||
@@ -29,7 +39,7 @@ export function LibraryPage() {
 
       return isInFolder && matchesQuery
     })
-  }, [searchQuery])
+  }, [items, searchQuery, selectedFolderId])
 
   function updateItemSelection(itemId: string, selected: boolean) {
     setSelectedItemIds((currentSelection) => {
@@ -50,6 +60,7 @@ export function LibraryPage() {
       <aside className="hidden h-svh border-r border-sidebar-border lg:sticky lg:top-0 lg:block">
         <LibrarySidebar
           folders={folderTree}
+          isConnected={isConnected}
           selectedFolderId={selectedFolderId}
         />
       </aside>
@@ -57,6 +68,7 @@ export function LibraryPage() {
         <LibraryToolbar
           folders={folderTree}
           folderPath={folderPath.map((folder) => folder.name)}
+          isConnected={isConnected}
           onSearchChange={setSearchQuery}
           searchQuery={searchQuery}
           selectedFolderId={selectedFolderId}
@@ -65,7 +77,7 @@ export function LibraryPage() {
           <div className="mb-6 flex items-end justify-between gap-4">
             <div>
               <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-                {folderPath.at(-1)?.name}
+                {folderPath.at(-1)?.name ?? "Stillroom"}
               </h1>
               <p className="mt-1 text-sm text-muted-foreground">
                 {visibleItems.length}{" "}
@@ -86,4 +98,8 @@ export function LibraryPage() {
       />
     </div>
   )
+}
+
+function getInitialFolderId(snapshot?: DriveLibrarySnapshot) {
+  return snapshot?.folders[0]?.id ?? snapshot?.rootFolderId ?? "bento"
 }

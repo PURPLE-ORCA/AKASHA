@@ -8,11 +8,13 @@ import { FolderTree } from "./folder-tree"
 
 type LibrarySidebarProps = {
   folders: FolderTreeNode[]
+  isConnected: boolean
   selectedFolderId: string
 }
 
 export function LibrarySidebar({
   folders,
+  isConnected,
   selectedFolderId,
 }: LibrarySidebarProps) {
   return (
@@ -30,9 +32,25 @@ export function LibrarySidebar({
       <div className="min-h-0 flex-1 overflow-y-auto">
         <FolderTree folders={folders} selectedFolderId={selectedFolderId} />
       </div>
-      <p className="pt-5 text-xs text-muted-foreground">
-        Your private visual library
-      </p>
+      <div className="pt-5">
+        {isConnected ? (
+          <p className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span
+              className="size-2 rounded-full bg-primary"
+              aria-hidden="true"
+            />
+            Library connected
+          </p>
+        ) : (
+          <Button
+            render={<a href="/api/auth/google" />}
+            size="lg"
+            variant="outline"
+          >
+            Connect library
+          </Button>
+        )}
+      </div>
     </div>
   )
 }

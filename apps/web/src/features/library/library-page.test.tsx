@@ -21,5 +21,6 @@ describe("LibraryPage", () => {
       screen.getByRole("searchbox", { name: "Search your library" })
     ).toBeTruthy()
     expect(screen.getByText("8 items")).toBeTruthy()
+    expect(screen.getByRole("link", { name: "Connect library" })).toBeTruthy()
   })
 })

@@ -80,14 +80,20 @@ function MediaCard({ item, selected, onSelectionChange }: MediaCardProps) {
       data-selected={selected}
     >
       <div className="relative overflow-hidden bg-muted">
-        <img
-          alt={item.title}
-          className="h-auto w-full object-cover transition-transform duration-300 motion-safe:group-hover:scale-[1.015]"
-          height={item.height}
-          loading="lazy"
-          src={item.thumbnailUrl}
-          width={item.width}
-        />
+        {item.thumbnailUrl ? (
+          <img
+            alt={item.title}
+            className="h-auto w-full object-cover transition-transform duration-300 motion-safe:group-hover:scale-[1.015]"
+            height={item.height}
+            loading="lazy"
+            src={item.thumbnailUrl}
+            width={item.width}
+          />
+        ) : (
+          <div className="grid aspect-video place-items-center bg-primary/10 text-primary">
+            <PlayIcon aria-hidden="true" className="size-10" weight="duotone" />
+          </div>
+        )}
         <div className="absolute top-3 left-3 rounded-md bg-background/90 p-2 shadow-sm backdrop-blur">
           <Checkbox
             aria-label={`Select ${item.title}`}

@@ -37,6 +37,7 @@ import { LibrarySidebar } from "./library-sidebar"
 type LibraryToolbarProps = {
   folders: FolderTreeNode[]
   folderPath: string[]
+  isConnected: boolean
   searchQuery: string
   selectedFolderId: string
   onSearchChange: (query: string) => void
@@ -45,6 +46,7 @@ type LibraryToolbarProps = {
 export function LibraryToolbar({
   folders,
   folderPath,
+  isConnected,
   searchQuery,
   selectedFolderId,
   onSearchChange,
@@ -76,6 +78,7 @@ export function LibraryToolbar({
               <SheetTitle>Stillroom folders</SheetTitle>
               <LibrarySidebar
                 folders={folders}
+                isConnected={isConnected}
                 selectedFolderId={selectedFolderId}
               />
             </SheetContent>
