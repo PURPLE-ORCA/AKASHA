@@ -18,10 +18,8 @@ describe("AuthLanding", () => {
       })
     ).toBeTruthy()
     expect(
-      screen
-        .getByRole("button", { name: "Continue with Google" })
-        .getAttribute("href")
-    ).toBe("/api/auth/google")
+      screen.getByRole("button", { name: "Continue with Google" })
+    ).toBeTruthy()
     expect(screen.queryByRole("alert")).toBeNull()
   })
 

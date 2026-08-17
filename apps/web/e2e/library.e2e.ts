@@ -9,9 +9,11 @@ test("presents the Google authentication entry point", async ({ page }) => {
       name: "Keep the ideas worth returning to.",
     })
   ).toBeVisible()
-  await expect(
-    page.getByRole("button", { name: "Continue with Google" })
-  ).toHaveAttribute("href", "/api/auth/google")
+  const googleAuthRequest = page.waitForRequest(
+    (request) => new URL(request.url()).pathname === "/api/auth/google"
+  )
+  await page.getByRole("button", { name: "Continue with Google" }).click()
+  await googleAuthRequest
   await expect(page.getByRole("img")).toHaveCount(0)
 })
 

@@ -16,13 +16,12 @@ export function AuthLanding({ connectionFailed = false }: AuthLandingProps) {
         <Typography color="muted">
           Collect images and visual references in one calm, private space.
         </Typography>
-        <Button
-          size="lg"
-          onPress={() => window.location.assign("/api/auth/google")}
-        >
-          <GoogleLogoIcon aria-hidden="true" weight="bold" />
-          Continue with Google
-        </Button>
+        <form action="/api/auth/google" method="get">
+          <Button size="lg" type="submit">
+            <GoogleLogoIcon aria-hidden="true" weight="bold" />
+            Continue with Google
+          </Button>
+        </form>
         {connectionFailed ? (
           <Typography color="muted" role="alert" type="body-sm">
             Stillroom couldn’t connect your library. Try again.
