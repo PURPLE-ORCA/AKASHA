@@ -1,71 +1,61 @@
-import {
-  CaretDownIcon,
-  CaretRightIcon,
-  FolderIcon,
-  FolderOpenIcon,
-} from "@phosphor-icons/react"
-import type { FolderTreeNode } from "@stillroom/contracts"
+import { useRef } from "react"
+import { FolderSimpleIcon } from "@phosphor-icons/react"
+import { Typography } from "@heroui/react"
+import type { LibraryFolder } from "@stillroom/contracts"
 
-type FolderTreeProps = {
-  folders: FolderTreeNode[]
-  selectedFolderId: string
+type FolderGalleryProps = {
+  folders: LibraryFolder[]
 }
 
-export function FolderTree({ folders, selectedFolderId }: FolderTreeProps) {
+export function FolderGallery({ folders }: FolderGalleryProps) {
+  const linkRefs = useRef<Array<HTMLAnchorElement | null>>([])
+
+  if (folders.length === 0) {
+    return (
+      <div className="gallery-empty">
+        <Typography color="muted">No folders here yet.</Typography>
+      </div>
+    )
+  }
+
+  function moveFocus(index: number, direction: -1 | 1) {
+    const nextIndex = (index + direction + folders.length) % folders.length
+    linkRefs.current[nextIndex]?.focus()
+  }
+
   return (
-    <nav aria-label="Library folders">
-      <ul className="space-y-1">
-        {folders.map((folder) => (
-          <FolderBranch
-            folder={folder}
+    <nav aria-label="Folders" className="folder-grid">
+      {folders.map((folder, index) => {
+        const href = `/?folder=${folder.id}`
+
+        return (
+          <a
+            className="folder-link"
+            href={href}
             key={folder.id}
-            selectedFolderId={selectedFolderId}
-          />
-        ))}
-      </ul>
+            onKeyDown={(event) => {
+              if (event.key === "ArrowLeft") {
+                event.preventDefault()
+                moveFocus(index, -1)
+              }
+              if (event.key === "ArrowRight") {
+                event.preventDefault()
+                moveFocus(index, 1)
+              }
+              if (event.key === " ") {
+                event.preventDefault()
+                window.location.assign(href)
+              }
+            }}
+            ref={(node) => {
+              linkRefs.current[index] = node
+            }}
+          >
+            <FolderSimpleIcon aria-hidden="true" size={24} weight="fill" />
+            <Typography weight="medium">{folder.name}</Typography>
+          </a>
+        )
+      })}
     </nav>
-  )
-}
-
-type FolderBranchProps = {
-  folder: FolderTreeNode
-  selectedFolderId: string
-}
-
-function FolderBranch({ folder, selectedFolderId }: FolderBranchProps) {
-  const isSelected = folder.id === selectedFolderId
-  const isExpanded = folder.children.length > 0
-
-  return (
-    <li>
-      <a
-        aria-current={isSelected ? "page" : undefined}
-        className="group flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground aria-[current=page]:bg-primary/10 aria-[current=page]:font-medium aria-[current=page]:text-primary"
-        href={`/?folder=${folder.id}`}
-      >
-        {isExpanded ? (
-          <CaretDownIcon aria-hidden="true" className="size-3" />
-        ) : (
-          <CaretRightIcon aria-hidden="true" className="size-3 opacity-0" />
-        )}
-        {isSelected ? (
-          <FolderOpenIcon aria-hidden="true" className="size-4" weight="fill" />
-        ) : (
-          <FolderIcon aria-hidden="true" className="size-4" />
-        )}
-        <span className="truncate">{folder.name}</span>
-      </a>
-      {isExpanded ? (
-        <ul className="ml-5 space-y-1 border-l border-border pl-2">
-          {folder.children.map((child) => (
-            <FolderBranch
-              folder={child}
-              key={child.id}
-              selectedFolderId={selectedFolderId}
-            />
-          ))}
-        </ul>
-      ) : null}
-    </li>
   )
 }

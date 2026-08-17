@@ -1,18 +1,27 @@
 import { useEffect, useMemo, useState } from "react"
-import { buildFolderTree, getFolderPath } from "@stillroom/contracts"
+import { FolderSimplePlusIcon } from "@phosphor-icons/react"
+import { Label, Tabs, Typography } from "@heroui/react"
+import { ContextMenu } from "@heroui-pro/react"
+import { getFolderPath } from "@stillroom/contracts"
+import type { LibraryFolder } from "@stillroom/contracts"
 
 import type { DriveLibrarySnapshot } from "@/server/drive/library.server"
-import { MoveItemsDialog, RemoveItemsDialog } from "./library-action-dialogs"
+import { FolderGallery } from "./folder-tree"
+import {
+  MoveItemsDialog,
+  NewFolderDialog,
+  RemoveItemsDialog,
+} from "./library-action-dialogs"
+import { LibraryCommandPalette } from "./library-command-palette"
+import { LibraryEmptyState } from "./library-empty-state"
+import { LibraryToolbar } from "./library-toolbar"
+import type { GalleryLayout, ThemePreference } from "./library-toolbar"
+import { MediaGallery } from "./media-gallery"
 import {
   createLibraryFolder,
   moveLibraryItems,
   removeLibraryItems,
 } from "./library.functions"
-import { LibraryEmptyState } from "./library-empty-state"
-import { LibrarySidebar } from "./library-sidebar"
-import { LibraryToolbar } from "./library-toolbar"
-import { MediaGallery } from "./media-gallery"
-import { SelectionBar } from "./selection-bar"
 
 type LibraryPageProps = {
   initialSnapshot: DriveLibrarySnapshot
@@ -25,154 +34,229 @@ export function LibraryPage({
   onRefresh = async () => {},
   requestedFolderId,
 }: LibraryPageProps) {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [isHydrated, setIsHydrated] = useState(false)
-  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set())
-  const [moveItemIds, setMoveItemIds] = useState<string[]>([])
-  const [removeItemIds, setRemoveItemIds] = useState<string[]>([])
-  const { folders, items } = initialSnapshot
+  const [activeTab, setActiveTab] = useState<"all" | "folders">("all")
+  const [commandOpen, setCommandOpen] = useState(false)
+  const [createFolderOpen, setCreateFolderOpen] = useState(false)
+  const [layout, setLayout] = useState<GalleryLayout>("cards")
+  const [moveItemId, setMoveItemId] = useState<string | null>(null)
+  const [removeItemId, setRemoveItemId] = useState<string | null>(null)
+  const [theme, setTheme] = useState<ThemePreference>("system")
+  const { folders, items, rootFolderId } = initialSnapshot
   const selectedFolderId = getSelectedFolderId(
     folders,
-    initialSnapshot,
+    rootFolderId,
     requestedFolderId
   )
-  const folderTree = useMemo(() => buildFolderTree(folders), [folders])
   const folderPath = useMemo(
     () => getFolderPath(folders, selectedFolderId),
     [folders, selectedFolderId]
   )
-  const visibleItems = useMemo(() => {
-    const normalizedQuery = searchQuery.trim().toLocaleLowerCase()
-
-    return items.filter((item) => {
-      const isInFolder = item.folderId === selectedFolderId
-      const matchesQuery =
-        normalizedQuery.length === 0 ||
-        item.title.toLocaleLowerCase().includes(normalizedQuery) ||
-        item.sourceLabel.toLocaleLowerCase().includes(normalizedQuery)
-
-      return isInFolder && matchesQuery
-    })
-  }, [items, searchQuery, selectedFolderId])
   const selectedFolderName = folderPath.at(-1)?.name ?? "Stillroom"
+  const visibleItems = useMemo(
+    () =>
+      selectedFolderId === rootFolderId
+        ? items
+        : items.filter((item) => item.folderId === selectedFolderId),
+    [items, rootFolderId, selectedFolderId]
+  )
+  const visibleFolders = useMemo(
+    () =>
+      folders.filter((folder) =>
+        selectedFolderId === rootFolderId
+          ? folder.parentId === null
+          : folder.parentId === selectedFolderId
+      ),
+    [folders, rootFolderId, selectedFolderId]
+  )
   const isLibraryEmpty = folders.length === 0 && items.length === 0
+  const moveDestinations = useMemo(() => {
+    const movingItem = items.find((item) => item.id === moveItemId)
+    const destinations: LibraryFolder[] = folders.filter(
+      (folder) => folder.id !== movingItem?.folderId
+    )
+
+    if (movingItem?.folderId !== rootFolderId) {
+      destinations.unshift({
+        id: rootFolderId,
+        name: "Stillroom",
+        parentId: null,
+      })
+    }
+
+    return destinations
+  }, [folders, items, moveItemId, rootFolderId])
 
   useEffect(() => {
-    setIsHydrated(true)
+    const savedTheme = window.localStorage.getItem("stillroom-theme")
+    const savedLayout = window.localStorage.getItem("stillroom-layout")
+
+    if (isThemePreference(savedTheme)) setTheme(savedTheme)
+    if (savedLayout === "cards" || savedLayout === "list") {
+      setLayout(savedLayout)
+    }
   }, [])
 
   useEffect(() => {
-    setSelectedItemIds(new Set())
-  }, [selectedFolderId])
+    const media = window.matchMedia("(prefers-color-scheme: dark)")
+    const apply = () => applyTheme(theme, media.matches)
+    apply()
+    media.addEventListener("change", apply)
+    window.localStorage.setItem("stillroom-theme", theme)
+    return () => media.removeEventListener("change", apply)
+  }, [theme])
 
-  function updateItemSelection(itemId: string, selected: boolean) {
-    setSelectedItemIds((currentSelection) => {
-      const nextSelection = new Set(currentSelection)
+  useEffect(() => {
+    window.localStorage.setItem("stillroom-layout", layout)
+  }, [layout])
 
-      if (selected) {
-        nextSelection.add(itemId)
-      } else {
-        nextSelection.delete(itemId)
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      const target = event.target as HTMLElement | null
+      const isTyping =
+        target?.matches("input, textarea, select") || target?.isContentEditable
+
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault()
+        setCommandOpen((open) => !open)
+        return
       }
 
-      return nextSelection
-    })
-  }
+      if (
+        !isTyping &&
+        !event.metaKey &&
+        !event.ctrlKey &&
+        event.key.toLowerCase() === "d"
+      ) {
+        event.preventDefault()
+        setTheme((current) =>
+          resolveTheme(current) === "dark" ? "light" : "dark"
+        )
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [])
 
   async function createFolder(name: string) {
     await createLibraryFolder({
-      data: {
-        name,
-        parentFolderId: selectedFolderId,
-      },
+      data: { name, parentFolderId: selectedFolderId },
     })
     await onRefresh()
   }
 
-  async function moveItems(destinationFolderId: string) {
+  async function moveItem(destinationFolderId: string) {
+    if (!moveItemId) return
     await moveLibraryItems({
-      data: { destinationFolderId, fileIds: moveItemIds },
+      data: { destinationFolderId, fileIds: [moveItemId] },
     })
-    setSelectedItemIds(new Set())
     await onRefresh()
   }
 
-  async function removeItems() {
-    await removeLibraryItems({ data: { fileIds: removeItemIds } })
-    setSelectedItemIds(new Set())
+  async function removeItem() {
+    if (!removeItemId) return
+    await removeLibraryItems({ data: { fileIds: [removeItemId] } })
     await onRefresh()
   }
 
   return (
-    <div
-      className="min-h-svh bg-background lg:grid lg:grid-cols-[17rem_minmax(0,1fr)]"
-      data-hydrated={isHydrated}
-    >
-      <aside className="hidden h-svh border-r border-sidebar-border lg:sticky lg:top-0 lg:block">
-        <LibrarySidebar
-          folders={folderTree}
-          onCreateFolder={createFolder}
-          selectedFolderId={selectedFolderId}
-          selectedFolderName={selectedFolderName}
-        />
-      </aside>
-      <div className="min-w-0">
-        <LibraryToolbar
-          folders={folderTree}
-          folderPath={folderPath.map((folder) => folder.name)}
-          onCreateFolder={createFolder}
-          onSearchChange={setSearchQuery}
-          searchQuery={searchQuery}
-          selectedFolderId={selectedFolderId}
-          selectedFolderName={selectedFolderName}
-        />
-        <main className="px-4 py-6 md:px-6 lg:px-8" id="main-content">
-          <div className="mb-6 flex items-end justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-                {selectedFolderName}
-              </h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {visibleItems.length}{" "}
-                {visibleItems.length === 1 ? "item" : "items"}
-              </p>
+    <div className="library-shell">
+      <LibraryToolbar
+        folderPath={folderPath}
+        layout={layout}
+        onLayoutChange={setLayout}
+        onThemeChange={setTheme}
+        theme={theme}
+      />
+      <ContextMenu>
+        <ContextMenu.Trigger>
+          <main className="library-main" id="main-content">
+            <div className="sr-only">
+              <Typography type="h1">{selectedFolderName}</Typography>
             </div>
-          </div>
-          {isLibraryEmpty ? (
-            <LibraryEmptyState onCreateFolder={createFolder} />
-          ) : (
-            <MediaGallery
-              items={visibleItems}
-              onItemSelectionChange={updateItemSelection}
-              onMoveItems={setMoveItemIds}
-              onRemoveItems={setRemoveItemIds}
-              selectedItemIds={selectedItemIds}
-            />
-          )}
-        </main>
-      </div>
-      <SelectionBar
-        onClear={() => setSelectedItemIds(new Set())}
-        onMove={() => setMoveItemIds([...selectedItemIds])}
-        onRemove={() => setRemoveItemIds([...selectedItemIds])}
-        selectedCount={selectedItemIds.size}
+            <div className="library-tabs">
+              <Tabs
+                selectedKey={activeTab}
+                variant="secondary"
+                onSelectionChange={(key) =>
+                  setActiveTab(key as "all" | "folders")
+                }
+              >
+                <Tabs.ListContainer>
+                  <Tabs.List aria-label="Library views">
+                    <Tabs.Tab id="all">
+                      All
+                      <Tabs.Indicator />
+                    </Tabs.Tab>
+                    <Tabs.Tab id="folders">
+                      Folders
+                      <Tabs.Indicator />
+                    </Tabs.Tab>
+                  </Tabs.List>
+                </Tabs.ListContainer>
+                <Tabs.Panel id="all">
+                  <div className="library-content">
+                    {isLibraryEmpty ? (
+                      <LibraryEmptyState onCreateFolder={createFolder} />
+                    ) : (
+                      <MediaGallery
+                        items={visibleItems}
+                        layout={layout}
+                        onMoveItem={setMoveItemId}
+                        onRemoveItem={setRemoveItemId}
+                      />
+                    )}
+                  </div>
+                </Tabs.Panel>
+                <Tabs.Panel id="folders">
+                  <div className="library-content">
+                    <FolderGallery folders={visibleFolders} />
+                  </div>
+                </Tabs.Panel>
+              </Tabs>
+            </div>
+          </main>
+        </ContextMenu.Trigger>
+        <ContextMenu.Popover>
+          <ContextMenu.Menu
+            aria-label="Folder actions"
+            onAction={() => setCreateFolderOpen(true)}
+          >
+            <ContextMenu.Item id="create-folder" textValue="Create folder">
+              <FolderSimplePlusIcon aria-hidden="true" />
+              <Label>Create folder</Label>
+            </ContextMenu.Item>
+          </ContextMenu.Menu>
+        </ContextMenu.Popover>
+      </ContextMenu>
+      <LibraryCommandPalette
+        folders={folders}
+        onOpenChange={setCommandOpen}
+        onThemeChange={setTheme}
+        open={commandOpen}
+      />
+      <NewFolderDialog
+        onCreate={createFolder}
+        onOpenChange={setCreateFolderOpen}
+        open={createFolderOpen}
+        parentName={selectedFolderName}
       />
       <MoveItemsDialog
-        folders={folders.filter((folder) => folder.id !== selectedFolderId)}
-        itemCount={moveItemIds.length}
-        onMove={moveItems}
+        folders={moveDestinations}
+        itemCount={moveItemId ? 1 : 0}
+        onMove={moveItem}
         onOpenChange={(open) => {
-          if (!open) setMoveItemIds([])
+          if (!open) setMoveItemId(null)
         }}
-        open={moveItemIds.length > 0}
+        open={moveItemId !== null}
       />
       <RemoveItemsDialog
-        itemCount={removeItemIds.length}
+        itemCount={removeItemId ? 1 : 0}
         onOpenChange={(open) => {
-          if (!open) setRemoveItemIds([])
+          if (!open) setRemoveItemId(null)
         }}
-        onRemove={removeItems}
-        open={removeItemIds.length > 0}
+        onRemove={removeItem}
+        open={removeItemId !== null}
       />
     </div>
   )
@@ -180,15 +264,29 @@ export function LibraryPage({
 
 function getSelectedFolderId(
   folders: DriveLibrarySnapshot["folders"],
-  snapshot: DriveLibrarySnapshot,
+  rootFolderId: string,
   requestedFolderId?: string
 ) {
-  if (
-    requestedFolderId &&
+  return requestedFolderId &&
     folders.some((folder) => folder.id === requestedFolderId)
-  ) {
-    return requestedFolderId
-  }
+    ? requestedFolderId
+    : rootFolderId
+}
 
-  return folders[0]?.id ?? snapshot.rootFolderId
+function isThemePreference(value: string | null): value is ThemePreference {
+  return value === "light" || value === "dark" || value === "system"
+}
+
+function resolveTheme(theme: ThemePreference) {
+  if (theme !== "system") return theme
+  return window.matchMedia("(prefers-color-scheme: dark)").matches
+    ? "dark"
+    : "light"
+}
+
+function applyTheme(theme: ThemePreference, systemIsDark: boolean) {
+  const resolved =
+    theme === "system" ? (systemIsDark ? "dark" : "light") : theme
+  document.documentElement.classList.toggle("dark", resolved === "dark")
+  document.documentElement.dataset.theme = resolved
 }

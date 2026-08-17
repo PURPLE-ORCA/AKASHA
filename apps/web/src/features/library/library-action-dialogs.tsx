@@ -1,65 +1,56 @@
 import { useEffect, useState } from "react"
-import { PlusIcon, TrashIcon } from "@phosphor-icons/react"
-import type { LibraryFolder } from "@stillroom/contracts"
-
 import {
   AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogMedia,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
-import { Button } from "@/components/ui/button"
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import {
+  Button,
+  FieldError,
+  Input,
+  Label,
+  ListBox,
+  Modal,
   Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+  TextField,
+  Typography,
+} from "@heroui/react"
+import type { LibraryFolder } from "@stillroom/contracts"
 
 type NewFolderDialogProps = {
-  disabled: boolean
+  open: boolean
   parentName: string
   onCreate: (name: string) => Promise<void>
+  onOpenChange: (open: boolean) => void
   triggerLabel?: string
 }
 
 export function NewFolderDialog({
-  disabled,
+  open,
   parentName,
   onCreate,
-  triggerLabel = "New folder",
+  onOpenChange,
+  triggerLabel,
 }: NewFolderDialogProps) {
   const [name, setName] = useState("")
   const [error, setError] = useState<string>()
-  const [isOpen, setIsOpen] = useState(false)
   const [isPending, setIsPending] = useState(false)
+
+  useEffect(() => {
+    if (!open) {
+      setName("")
+      setError(undefined)
+    }
+  }, [open])
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (name.trim().length === 0) {
+      setError("Enter a folder name.")
+      return
+    }
+
     setError(undefined)
     setIsPending(true)
-
     try {
       await onCreate(name)
-      setName("")
-      setIsOpen(false)
+      onOpenChange(false)
     } catch (caughtError) {
       setError(getActionError(caughtError))
     } finally {
@@ -68,51 +59,51 @@ export function NewFolderDialog({
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger render={<Button size="lg" disabled={disabled} />}>
-        <PlusIcon data-icon="inline-start" aria-hidden="true" />
-        {triggerLabel}
-      </DialogTrigger>
-      <DialogContent>
-        <form onSubmit={submit}>
-          <DialogHeader>
-            <DialogTitle>Create a folder</DialogTitle>
-            <DialogDescription>
-              Add a folder inside {parentName}.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-5">
-            <label className="grid gap-2 text-sm font-medium">
-              Folder name
-              <Input
-                autoFocus
-                maxLength={120}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="Campaign references"
-                required
-                value={name}
-              />
-            </label>
-            {error ? (
-              <p className="mt-3 text-sm text-destructive" role="alert">
-                {error}
-              </p>
-            ) : null}
-          </div>
-          <DialogFooter>
-            <DialogClose render={<Button type="button" variant="outline" />}>
-              Cancel
-            </DialogClose>
-            <Button
-              disabled={isPending || name.trim().length === 0}
-              type="submit"
-            >
-              {isPending ? "Creating…" : "Create folder"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <>
+      {triggerLabel ? (
+        <Button onPress={() => onOpenChange(true)}>{triggerLabel}</Button>
+      ) : null}
+      <Modal.Backdrop isOpen={open} onOpenChange={onOpenChange}>
+        <Modal.Container size="sm">
+          <Modal.Dialog>
+            <Modal.CloseTrigger />
+            <form className="dialog-form" onSubmit={submit}>
+              <Modal.Header>
+                <Modal.Heading>Create a folder</Modal.Heading>
+              </Modal.Header>
+              <Modal.Body>
+                <div className="dialog-field">
+                  <Typography color="muted" type="body-sm">
+                    Add a folder inside {parentName}.
+                  </Typography>
+                  <TextField fullWidth isInvalid={Boolean(error)}>
+                    <Label>Folder name</Label>
+                    <Input
+                      autoFocus
+                      maxLength={120}
+                      placeholder="Campaign references"
+                      value={name}
+                      onChange={(event) => setName(event.target.value)}
+                    />
+                    <FieldError>{error}</FieldError>
+                  </TextField>
+                </div>
+              </Modal.Body>
+              <Modal.Footer>
+                <div className="dialog-actions">
+                  <Button slot="close" type="button" variant="tertiary">
+                    Cancel
+                  </Button>
+                  <Button isPending={isPending} type="submit">
+                    {isPending ? "Creating…" : "Create folder"}
+                  </Button>
+                </div>
+              </Modal.Footer>
+            </form>
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
+    </>
   )
 }
 
@@ -144,14 +135,13 @@ export function MoveItemsDialog({
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
-
     if (!destinationId) {
+      setError("Choose a destination folder.")
       return
     }
 
     setError(undefined)
     setIsPending(true)
-
     try {
       await onMove(destinationId)
       onOpenChange(false)
@@ -163,48 +153,63 @@ export function MoveItemsDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <form onSubmit={submit}>
-          <DialogHeader>
-            <DialogTitle>Move {formatItemCount(itemCount)}</DialogTitle>
-            <DialogDescription>
-              Choose where this inspiration should live.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-2 py-5">
-            <label className="text-sm font-medium" htmlFor="destination-folder">
-              Destination
-            </label>
-            <Select value={destinationId} onValueChange={setDestinationId}>
-              <SelectTrigger id="destination-folder">
-                <SelectValue placeholder="Choose a folder" />
-              </SelectTrigger>
-              <SelectContent>
-                {folders.map((folder) => (
-                  <SelectItem key={folder.id} value={folder.id}>
-                    {folder.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {error ? (
-              <p className="text-sm text-destructive" role="alert">
-                {error}
-              </p>
-            ) : null}
-          </div>
-          <DialogFooter>
-            <DialogClose render={<Button type="button" variant="outline" />}>
-              Cancel
-            </DialogClose>
-            <Button disabled={!destinationId || isPending} type="submit">
-              {isPending ? "Moving…" : "Move"}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <Modal.Backdrop isOpen={open} onOpenChange={onOpenChange}>
+      <Modal.Container size="sm">
+        <Modal.Dialog>
+          <Modal.CloseTrigger />
+          <form className="dialog-form" onSubmit={submit}>
+            <Modal.Header>
+              <Modal.Heading>Move {formatItemCount(itemCount)}</Modal.Heading>
+            </Modal.Header>
+            <Modal.Body>
+              <div className="dialog-field">
+                <Select
+                  fullWidth
+                  placeholder="Choose a folder"
+                  selectedKey={destinationId}
+                  onSelectionChange={(key) => setDestinationId(String(key))}
+                >
+                  <Label>Destination</Label>
+                  <Select.Trigger>
+                    <Select.Value />
+                    <Select.Indicator />
+                  </Select.Trigger>
+                  <Select.Popover>
+                    <ListBox>
+                      {folders.map((folder) => (
+                        <ListBox.Item
+                          id={folder.id}
+                          key={folder.id}
+                          textValue={folder.name}
+                        >
+                          {folder.name}
+                          <ListBox.ItemIndicator />
+                        </ListBox.Item>
+                      ))}
+                    </ListBox>
+                  </Select.Popover>
+                </Select>
+                {error ? (
+                  <Typography color="muted" role="alert" type="body-sm">
+                    {error}
+                  </Typography>
+                ) : null}
+              </div>
+            </Modal.Body>
+            <Modal.Footer>
+              <div className="dialog-actions">
+                <Button slot="close" type="button" variant="tertiary">
+                  Cancel
+                </Button>
+                <Button isPending={isPending} type="submit">
+                  {isPending ? "Moving…" : "Move image"}
+                </Button>
+              </div>
+            </Modal.Footer>
+          </form>
+        </Modal.Dialog>
+      </Modal.Container>
+    </Modal.Backdrop>
   )
 }
 
@@ -225,15 +230,12 @@ export function RemoveItemsDialog({
   const [isPending, setIsPending] = useState(false)
 
   useEffect(() => {
-    if (!open) {
-      setError(undefined)
-    }
+    if (!open) setError(undefined)
   }, [open])
 
   async function remove() {
     setError(undefined)
     setIsPending(true)
-
     try {
       await onRemove()
       onOpenChange(false)
@@ -245,45 +247,50 @@ export function RemoveItemsDialog({
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogMedia>
-            <TrashIcon aria-hidden="true" />
-          </AlertDialogMedia>
-          <AlertDialogTitle>
-            Remove {formatItemCount(itemCount)}?
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            The selection will be moved to your Google Drive trash.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        {error ? (
-          <p className="text-sm text-destructive" role="alert">
-            {error}
-          </p>
-        ) : null}
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            disabled={isPending}
-            onClick={remove}
-            variant="destructive"
-          >
-            {isPending ? "Removing…" : "Remove"}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <AlertDialog.Backdrop isOpen={open} onOpenChange={onOpenChange}>
+      <AlertDialog.Container size="sm">
+        <AlertDialog.Dialog>
+          <AlertDialog.CloseTrigger />
+          <AlertDialog.Header>
+            <AlertDialog.Icon status="danger" />
+            <AlertDialog.Heading>
+              Delete {formatItemCount(itemCount)}?
+            </AlertDialog.Heading>
+          </AlertDialog.Header>
+          <AlertDialog.Body>
+            <Typography color="muted">
+              {itemCount === 1
+                ? "The image will be moved to trash."
+                : "The images will be moved to trash."}
+            </Typography>
+            {error ? (
+              <Typography color="muted" role="alert" type="body-sm">
+                {error}
+              </Typography>
+            ) : null}
+          </AlertDialog.Body>
+          <AlertDialog.Footer>
+            <div className="dialog-actions">
+              <Button slot="close" variant="tertiary">
+                Cancel
+              </Button>
+              <Button isPending={isPending} variant="danger" onPress={remove}>
+                {isPending ? "Deleting…" : "Delete image"}
+              </Button>
+            </div>
+          </AlertDialog.Footer>
+        </AlertDialog.Dialog>
+      </AlertDialog.Container>
+    </AlertDialog.Backdrop>
   )
 }
 
 function formatItemCount(count: number) {
-  return `${count} ${count === 1 ? "item" : "items"}`
+  return `${count} ${count === 1 ? "image" : "images"}`
 }
 
 function getActionError(error: unknown) {
   return error instanceof Error
     ? error.message
-    : "The action could not be completed."
+    : "Unable to complete the action. Try again."
 }

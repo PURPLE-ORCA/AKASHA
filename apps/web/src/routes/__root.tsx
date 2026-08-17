@@ -1,6 +1,6 @@
 import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router"
+import { Link, Typography } from "@heroui/react"
 
-import { TooltipProvider } from "@/components/ui/tooltip"
 import appCss from "../styles.css?url"
 
 export const Route = createRootRoute({
@@ -29,21 +29,16 @@ export const Route = createRootRoute({
     ],
   }),
   notFoundComponent: () => (
-    <main className="grid min-h-svh place-items-center bg-background px-6 text-center">
-      <div>
-        <p className="text-sm font-medium text-primary">404</p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-          This room is empty
-        </h1>
-        <p className="mt-3 text-muted-foreground">
+    <main className="not-found">
+      <div className="not-found__content">
+        <Typography color="muted" type="body-sm">
+          404
+        </Typography>
+        <Typography type="h1">This room is empty</Typography>
+        <Typography color="muted">
           The page you requested could not be found.
-        </p>
-        <a
-          className="mt-6 inline-flex text-sm font-medium text-primary underline-offset-4 hover:underline"
-          href="/"
-        >
-          Return to your library
-        </a>
+        </Typography>
+        <Link href="/">Return to your library</Link>
       </div>
     </main>
   ),
@@ -57,13 +52,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        <a
-          className="sr-only z-50 rounded-md bg-primary px-4 py-2 text-primary-foreground focus:not-sr-only focus:fixed focus:top-4 focus:left-4"
-          href="#main-content"
-        >
+        <a className="skip-link" href="#main-content">
           Skip to content
         </a>
-        <TooltipProvider>{children}</TooltipProvider>
+        {children}
         <Scripts />
       </body>
     </html>

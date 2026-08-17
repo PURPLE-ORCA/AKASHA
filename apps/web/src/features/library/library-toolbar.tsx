@@ -1,160 +1,75 @@
-import { Fragment } from "react"
 import {
   GridFourIcon,
   ListBulletsIcon,
-  MagnifyingGlassIcon,
-  SidebarSimpleIcon,
+  MoonIcon,
+  SunIcon,
+  DesktopIcon,
 } from "@phosphor-icons/react"
-import type { FolderTreeNode } from "@stillroom/contracts"
+import { Breadcrumbs } from "@heroui/react"
+import { Segment } from "@heroui-pro/react"
+import type { LibraryFolder } from "@stillroom/contracts"
 
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
-import { Button } from "@/components/ui/button"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from "@/components/ui/input-group"
-import {
-  Sheet,
-  SheetContent,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
-import { LibrarySidebar } from "./library-sidebar"
+export type GalleryLayout = "cards" | "list"
+export type ThemePreference = "light" | "dark" | "system"
 
 type LibraryToolbarProps = {
-  folders: FolderTreeNode[]
-  folderPath: string[]
-  onCreateFolder: (name: string) => Promise<void>
-  searchQuery: string
-  selectedFolderId: string
-  selectedFolderName: string
-  onSearchChange: (query: string) => void
+  folderPath: LibraryFolder[]
+  layout: GalleryLayout
+  onLayoutChange: (layout: GalleryLayout) => void
+  onThemeChange: (theme: ThemePreference) => void
+  theme: ThemePreference
 }
 
 export function LibraryToolbar({
-  folders,
   folderPath,
-  onCreateFolder,
-  searchQuery,
-  selectedFolderId,
-  selectedFolderName,
-  onSearchChange,
+  layout,
+  onLayoutChange,
+  onThemeChange,
+  theme,
 }: LibraryToolbarProps) {
   return (
-    <header className="border-b border-border bg-background/95 px-4 py-3 backdrop-blur-sm md:px-6 lg:px-8">
-      <div className="flex items-center gap-3">
-        <div className="lg:hidden">
-          <Sheet>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <SheetTrigger
-                    render={
-                      <Button
-                        variant="outline"
-                        size="icon-lg"
-                        aria-label="Open folders"
-                      />
-                    }
-                  />
-                }
-              >
-                <SidebarSimpleIcon aria-hidden="true" />
-              </TooltipTrigger>
-              <TooltipContent>Open folders</TooltipContent>
-            </Tooltip>
-            <SheetContent side="left">
-              <SheetTitle>Stillroom folders</SheetTitle>
-              <LibrarySidebar
-                folders={folders}
-                onCreateFolder={onCreateFolder}
-                selectedFolderId={selectedFolderId}
-                selectedFolderName={selectedFolderName}
-              />
-            </SheetContent>
-          </Sheet>
-        </div>
-        <div className="hidden min-w-0 flex-1 xl:block">
-          <LibraryBreadcrumb folderPath={folderPath} />
-        </div>
-        <div className="w-full max-w-xl">
-          <InputGroup>
-            <InputGroupAddon>
-              <MagnifyingGlassIcon aria-hidden="true" />
-            </InputGroupAddon>
-            <InputGroupInput
-              aria-label="Search your library"
-              onChange={(event) => onSearchChange(event.target.value)}
-              placeholder="Search your library"
-              type="search"
-              value={searchQuery}
-            />
-          </InputGroup>
-        </div>
-        <div className="hidden items-center gap-1 sm:flex">
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  variant="secondary"
-                  size="icon-lg"
-                  aria-label="Grid view"
-                />
-              }
-            >
-              <GridFourIcon aria-hidden="true" weight="fill" />
-            </TooltipTrigger>
-            <TooltipContent>Grid view</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button variant="ghost" size="icon-lg" aria-label="List view" />
-              }
-            >
-              <ListBulletsIcon aria-hidden="true" />
-            </TooltipTrigger>
-            <TooltipContent>List view</TooltipContent>
-          </Tooltip>
-        </div>
+    <header className="library-header">
+      <div className="library-header__crumbs">
+        <Breadcrumbs aria-label="Current folder">
+          <Breadcrumbs.Item href="/">Stillroom</Breadcrumbs.Item>
+          {folderPath.map((folder) => (
+            <Breadcrumbs.Item href={`/?folder=${folder.id}`} key={folder.id}>
+              {folder.name}
+            </Breadcrumbs.Item>
+          ))}
+        </Breadcrumbs>
+      </div>
+      <div className="library-header__controls">
+        <Segment
+          aria-label="Theme"
+          selectedKey={theme}
+          size="sm"
+          onSelectionChange={(key) => onThemeChange(key as ThemePreference)}
+        >
+          <Segment.Item aria-label="Light theme" id="light">
+            <SunIcon aria-hidden="true" size={16} />
+          </Segment.Item>
+          <Segment.Item aria-label="Dark theme" id="dark">
+            <MoonIcon aria-hidden="true" size={16} />
+          </Segment.Item>
+          <Segment.Item aria-label="System theme" id="system">
+            <DesktopIcon aria-hidden="true" size={16} />
+          </Segment.Item>
+        </Segment>
+        <Segment
+          aria-label="Gallery layout"
+          selectedKey={layout}
+          size="sm"
+          onSelectionChange={(key) => onLayoutChange(key as GalleryLayout)}
+        >
+          <Segment.Item aria-label="Cards view" id="cards">
+            <GridFourIcon aria-hidden="true" size={16} weight="fill" />
+          </Segment.Item>
+          <Segment.Item aria-label="List view" id="list">
+            <ListBulletsIcon aria-hidden="true" size={16} />
+          </Segment.Item>
+        </Segment>
       </div>
     </header>
-  )
-}
-
-function LibraryBreadcrumb({ folderPath }: { folderPath: string[] }) {
-  return (
-    <Breadcrumb>
-      <BreadcrumbList>
-        {folderPath.map((folderName, index) => {
-          const isCurrent = index === folderPath.length - 1
-
-          return (
-            <Fragment key={folderName}>
-              <BreadcrumbItem>
-                {isCurrent ? (
-                  <BreadcrumbPage>{folderName}</BreadcrumbPage>
-                ) : (
-                  <span>{folderName}</span>
-                )}
-              </BreadcrumbItem>
-              {isCurrent ? null : <BreadcrumbSeparator />}
-            </Fragment>
-          )
-        })}
-      </BreadcrumbList>
-    </Breadcrumb>
   )
 }
