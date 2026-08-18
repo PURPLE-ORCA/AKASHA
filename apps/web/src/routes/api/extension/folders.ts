@@ -2,8 +2,10 @@ import { createFileRoute } from "@tanstack/react-router"
 
 import {
   createExtensionApiHeaders,
-  requireExtensionRefreshToken,
+  resolveExtensionGoogleCredentials,
+  setExtensionCredentialHeader,
 } from "@/server/auth/extension-auth.server"
+import type { GoogleTokenCredentials } from "@/server/auth/google-oauth.server"
 import { listExtensionFolderOptions } from "@/server/drive/extension-library.server"
 
 export const Route = createFileRoute("/api/extension/folders")({
@@ -11,10 +13,11 @@ export const Route = createFileRoute("/api/extension/folders")({
     handlers: {
       GET: async ({ request }) => {
         const headers = createExtensionApiHeaders(request)
-        let refreshToken: string
+        let credentials: GoogleTokenCredentials
 
         try {
-          refreshToken = requireExtensionRefreshToken(request)
+          credentials = await resolveExtensionGoogleCredentials(request)
+          setExtensionCredentialHeader(headers, credentials)
         } catch (error) {
           return Response.json(
             {
@@ -29,7 +32,7 @@ export const Route = createFileRoute("/api/extension/folders")({
 
         try {
           return Response.json(
-            { folders: await listExtensionFolderOptions(refreshToken) },
+            { folders: await listExtensionFolderOptions(credentials) },
             { headers }
           )
         } catch (error) {

@@ -36,10 +36,11 @@ export const Route = createFileRoute("/api/extension/auth")({
         if (session.data.googleRefreshToken) {
           await session.update(session.data)
           return createRedirectResponse(
-            createExtensionCredentialCallback(
-              redirectUri,
-              session.data.googleRefreshToken
-            )
+            createExtensionCredentialCallback(redirectUri, {
+              accessToken: session.data.googleAccessToken,
+              accessTokenExpiresAt: session.data.googleAccessTokenExpiresAt,
+              refreshToken: session.data.googleRefreshToken,
+            })
           )
         }
 

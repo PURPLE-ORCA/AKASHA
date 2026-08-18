@@ -20,6 +20,25 @@ describe("extension credentials", () => {
     ).toBe("refresh-token")
   })
 
+  it("retains a reusable access token and its expiry", () => {
+    const credential = issueExtensionCredential(
+      {
+        accessToken: "access-token",
+        accessTokenExpiresAt: 3_600_000,
+        refreshToken: "refresh-token",
+      },
+      { now: 1_000, secret }
+    )
+
+    expect(
+      readExtensionCredential(credential, { now: 2_000, secret })
+    ).toMatchObject({
+      accessToken: "access-token",
+      accessTokenExpiresAt: 3_600_000,
+      refreshToken: "refresh-token",
+    })
+  })
+
   it("rejects expired credentials", () => {
     const credential = issueExtensionCredential("refresh-token", {
       now: 1_000,

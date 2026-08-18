@@ -1,15 +1,27 @@
 import type { LibraryFolder } from "@akasha/contracts"
+import type { drive_v3 } from "googleapis"
 
-import { loadDriveLibrary } from "./library.server"
+import type { GoogleTokenCredentials } from "../auth/google-oauth.server"
+import { listStillroomFolders } from "./drive.server"
 
 export type ExtensionFolderOption = {
   id: string
   label: string
 }
 
-export async function listExtensionFolderOptions(refreshToken: string) {
-  const snapshot = await loadDriveLibrary(refreshToken)
-  return buildExtensionFolderOptions(snapshot)
+export async function listExtensionFolderOptions(
+  credentials: GoogleTokenCredentials
+) {
+  const { folders, root } = await listStillroomFolders(credentials)
+
+  if (!root.id) {
+    throw new Error("Akasha could not initialize the library root.")
+  }
+
+  return buildExtensionFolderOptions({
+    folders: buildReachableFolders(root.id, folders),
+    rootFolderId: root.id,
+  })
 }
 
 export function buildExtensionFolderOptions(snapshot: {
@@ -48,4 +60,44 @@ function appendFolderOptions(
     })
     appendFolderOptions(child.id, depth + 1, childrenByParent, options)
   }
+}
+
+export function buildReachableFolders(
+  rootFolderId: string,
+  driveFolders: drive_v3.Schema$File[]
+) {
+  const childrenByParent = new Map<string, drive_v3.Schema$File[]>()
+
+  for (const folder of driveFolders) {
+    for (const parentId of folder.parents ?? []) {
+      const siblings = childrenByParent.get(parentId) ?? []
+      siblings.push(folder)
+      childrenByParent.set(parentId, siblings)
+    }
+  }
+
+  const folders: LibraryFolder[] = []
+  const pending = [
+    { driveFolderId: rootFolderId, parentId: null as string | null },
+  ]
+  const visited = new Set([rootFolderId])
+
+  while (pending.length > 0) {
+    const current = pending.shift()
+    if (!current) break
+
+    for (const folder of childrenByParent.get(current.driveFolderId) ?? []) {
+      if (!folder.id || !folder.name || visited.has(folder.id)) continue
+
+      folders.push({
+        id: folder.id,
+        name: folder.name,
+        parentId: current.parentId,
+      })
+      visited.add(folder.id)
+      pending.push({ driveFolderId: folder.id, parentId: folder.id })
+    }
+  }
+
+  return folders
 }

@@ -7,12 +7,15 @@ import {
 import { z } from "zod"
 
 import { getSessionSecret } from "../env.server"
+import type { GoogleTokenCredentials } from "./google-oauth.server"
 
 const CREDENTIAL_PREFIX = "akasha_device_v1"
 const CREDENTIAL_PURPOSE = "akasha-extension-credential-v1"
 const CREDENTIAL_LIFETIME_MS = 90 * 24 * 60 * 60 * 1000
 
 const credentialPayloadSchema = z.object({
+  accessToken: z.string().min(1).optional(),
+  accessTokenExpiresAt: z.number().int().positive().optional(),
   expiresAt: z.number().int().positive(),
   issuedAt: z.number().int().positive(),
   refreshToken: z.string().min(1),
@@ -25,7 +28,7 @@ type CredentialOptions = {
 }
 
 export function issueExtensionCredential(
-  refreshToken: string,
+  credentials: GoogleTokenCredentials | string,
   options: CredentialOptions = {}
 ) {
   const now = options.now ?? Date.now()
@@ -41,9 +44,13 @@ export function issueExtensionCredential(
   const encryptedPayload = Buffer.concat([
     cipher.update(
       JSON.stringify({
+        ...(typeof credentials === "string" ? {} : credentials),
         expiresAt: now + CREDENTIAL_LIFETIME_MS,
         issuedAt: now,
-        refreshToken,
+        refreshToken:
+          typeof credentials === "string"
+            ? credentials
+            : credentials.refreshToken,
         version: 1,
       })
     ),

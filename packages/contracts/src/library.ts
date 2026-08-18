@@ -32,6 +32,8 @@ export const libraryItemSchema = z.object({
 })
 
 export const captureRequestSchema = captureDraftSchema.extend({
+  attempt: z.int().positive().default(1),
+  captureId: z.uuid().optional(),
   folderId: z.string().min(1),
 })
 

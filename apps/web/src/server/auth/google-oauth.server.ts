@@ -5,7 +5,7 @@ import { getServerEnv } from "../env.server"
 const DRIVE_FILE_SCOPE = "https://www.googleapis.com/auth/drive.file"
 const ACCESS_TOKEN_EXPIRY_BUFFER_MS = 60_000
 
-type GoogleTokenCredentials = {
+export type GoogleTokenCredentials = {
   accessToken?: string
   accessTokenExpiresAt?: number
   refreshToken: string

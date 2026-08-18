@@ -2,6 +2,8 @@ import {
   issueExtensionCredential,
   readExtensionCredential,
 } from "./extension-credential.server"
+import type { GoogleTokenCredentials } from "./google-oauth.server"
+import { getGoogleAccessToken } from "./google-oauth.server"
 
 export const AKASHA_EXTENSION_ID = "cooplhaddmnookoploidbemfjdacgnoh"
 const EXTENSION_REDIRECT_URI = `https://${AKASHA_EXTENSION_ID}.chromiumapp.org/oauth2`
@@ -26,14 +28,14 @@ export function createExtensionCallbackUrl(
 
 export function createExtensionCredentialCallback(
   redirectUri: string,
-  refreshToken: string
+  credentials: GoogleTokenCredentials | string
 ) {
   return createExtensionCallbackUrl(redirectUri, {
-    credential: issueExtensionCredential(refreshToken),
+    credential: issueExtensionCredential(credentials),
   })
 }
 
-export function requireExtensionRefreshToken(request: Request) {
+export function requireExtensionGoogleCredentials(request: Request) {
   const authorization = request.headers.get("Authorization")
 
   if (!authorization?.startsWith("Bearer ")) {
@@ -41,7 +43,27 @@ export function requireExtensionRefreshToken(request: Request) {
   }
 
   return readExtensionCredential(authorization.slice("Bearer ".length))
-    .refreshToken
+}
+
+export async function resolveExtensionGoogleCredentials(request: Request) {
+  const credentials = requireExtensionGoogleCredentials(request)
+  const activeToken = await getGoogleAccessToken(credentials)
+
+  if (!activeToken) {
+    throw new Error("Akasha authorization is invalid or expired.")
+  }
+
+  return {
+    ...activeToken,
+    refreshToken: credentials.refreshToken,
+  }
+}
+
+export function setExtensionCredentialHeader(
+  headers: Headers,
+  credentials: GoogleTokenCredentials
+) {
+  headers.set("X-Akasha-Credential", issueExtensionCredential(credentials))
 }
 
 export function createExtensionApiHeaders(request: Request) {
@@ -55,6 +77,10 @@ export function createExtensionApiHeaders(request: Request) {
     headers.set("Access-Control-Allow-Headers", "Authorization, Content-Type")
     headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
     headers.set("Access-Control-Allow-Origin", origin)
+    headers.set(
+      "Access-Control-Expose-Headers",
+      "Server-Timing, X-Akasha-Credential"
+    )
   }
 
   return headers

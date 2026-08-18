@@ -75,10 +75,11 @@ export const Route = createFileRoute("/api/auth/google/callback")({
 
         if (extensionRedirectUri) {
           return createRedirectResponse(
-            createExtensionCredentialCallback(
-              extensionRedirectUri,
-              refreshToken
-            ),
+            createExtensionCredentialCallback(extensionRedirectUri, {
+              accessToken: tokens.access_token ?? undefined,
+              accessTokenExpiresAt: tokens.expiry_date ?? undefined,
+              refreshToken,
+            }),
             303
           )
         }
