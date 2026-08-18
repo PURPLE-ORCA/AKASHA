@@ -10,7 +10,11 @@ export const Route = createFileRoute("/api/auth/google")({
       GET: async () => {
         const state = crypto.randomUUID()
         const session = await useStillroomSession()
-        await session.update({ oauthState: state })
+        await session.update({
+          ...session.data,
+          extensionRedirectUri: undefined,
+          oauthState: state,
+        })
 
         return createRedirectResponse(createGoogleAuthorizationUrl(state))
       },

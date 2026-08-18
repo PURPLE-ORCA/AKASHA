@@ -1,0 +1,104 @@
+import type { CaptureDraft } from "@akasha/contracts"
+
+const AUTH_STORAGE_KEY = "akashaDeviceCredential"
+const LEGACY_AUTH_STORAGE_KEY = "stillroomGoogleAuth"
+
+export type FolderOption = {
+  id: string
+  label: string
+}
+
+export async function connectAkasha() {
+  const redirectUrl = browser.identity.getRedirectURL("oauth2")
+  const responseUrl = await browser.identity.launchWebAuthFlow({
+    interactive: true,
+    url: createAkashaAuthorizationUrl(getAkashaApiUrl(), redirectUrl),
+  })
+
+  if (!responseUrl) {
+    throw new Error("Akasha authorization was cancelled.")
+  }
+
+  const credential = parseAkashaAuthorizationResponse(responseUrl)
+  await browser.storage.local.set({ [AUTH_STORAGE_KEY]: credential })
+  await browser.storage.local.remove(LEGACY_AUTH_STORAGE_KEY)
+  return listFolderOptions()
+}
+
+export async function listFolderOptions() {
+  const response = await authenticatedRequest("/api/extension/folders")
+  const body = (await response.json()) as { folders: FolderOption[] }
+  return body.folders
+}
+
+export async function saveCapture(draft: CaptureDraft, folderId: string) {
+  await authenticatedRequest("/api/extension/captures", {
+    body: JSON.stringify({ ...draft, folderId }),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  })
+}
+
+export function createAkashaAuthorizationUrl(apiUrl: string, redirectUrl: string) {
+  const url = new URL("/api/extension/auth", apiUrl)
+  url.searchParams.set("redirect_uri", redirectUrl)
+  return url.toString()
+}
+
+export function parseAkashaAuthorizationResponse(responseUrl: string) {
+  const response = new URL(responseUrl)
+  const params = new URLSearchParams(response.hash.slice(1))
+  const credential = params.get("credential")
+
+  if (params.get("error") || !credential) {
+    throw new Error("Akasha authorization was not completed.")
+  }
+
+  return credential
+}
+
+async function authenticatedRequest(path: string, init?: RequestInit) {
+  const credential = await readCredential()
+
+  if (!credential) {
+    throw new Error("Connect Akasha to continue.")
+  }
+
+  const response = await fetch(new URL(path, getAkashaApiUrl()), {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${credential}`,
+      ...init?.headers,
+    },
+  })
+
+  if (response.status === 401) {
+    await browser.storage.local.remove(AUTH_STORAGE_KEY)
+    throw new Error("Connect Akasha to continue.")
+  }
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as {
+      error?: string
+    } | null
+    throw new Error(body?.error ?? "Akasha could not reach your library.")
+  }
+
+  return response
+}
+
+async function readCredential() {
+  const result = await browser.storage.local.get(AUTH_STORAGE_KEY)
+  return result[AUTH_STORAGE_KEY] as string | undefined
+}
+
+function getAkashaApiUrl() {
+  const configuredUrl = import.meta.env.WXT_AKASHA_API_URL?.trim() || "http://localhost:3000"
+  const url = new URL(configuredUrl)
+
+  if (!["http:", "https:"].includes(url.protocol)) {
+    throw new Error("Akasha API URL must use HTTP or HTTPS.")
+  }
+
+  return url.toString()
+}

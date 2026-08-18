@@ -8,7 +8,7 @@ import {
   XIcon,
 } from "@phosphor-icons/react"
 import { useCallback, useEffect, useState } from "react"
-import type { FolderOption } from "@/utils/google-drive"
+import type { FolderOption } from "@/utils/akasha-api"
 import { connectLibrary, getFolderOptions, saveLibraryCapture } from "@/utils/messages"
 import { captureDraftStorage, selectedFolderStorage } from "@/utils/storage"
 
@@ -140,7 +140,7 @@ export default function App({ onClose }: { onClose: () => void }) {
                 <p>Save images and videos to your library.</p>
               </div>
               <button className="primary-button" onClick={handleConnect} type="button">
-                Connect Google Drive
+                Connect Akasha
               </button>
             </section>
           ) : saveStatus === "saved" ? (

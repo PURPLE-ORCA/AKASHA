@@ -1,3 +1,6 @@
+import { isIP } from "node:net"
+import { Readable } from "node:stream"
+import type { CaptureDraft } from "@akasha/contracts"
 import { google } from "googleapis"
 import type { drive_v3 } from "googleapis"
 
@@ -124,4 +127,150 @@ export async function trashFile(refreshToken: string, fileId: string) {
   })
 
   return response.data
+}
+
+export async function saveCapture(
+  refreshToken: string,
+  draft: CaptureDraft,
+  folderId: string
+) {
+  const drive = createDriveClient(refreshToken)
+
+  if (draft.kind === "video") {
+    const body = Buffer.from(JSON.stringify(draft))
+    const response = await drive.files.create({
+      fields:
+        "id,name,mimeType,parents,thumbnailLink,appProperties,createdTime",
+      media: {
+        body: Readable.from(body),
+        mimeType: "application/json",
+      },
+      requestBody: createCaptureMetadata(draft, folderId, "application/json"),
+    })
+
+    return response.data
+  }
+
+  assertSafeRemoteSourceUrl(draft.sourceUrl)
+  const sourceResponse = await fetch(draft.sourceUrl, {
+    headers: { "User-Agent": "Akasha Capture/1.0" },
+    redirect: "follow",
+  })
+
+  if (!sourceResponse.ok) {
+    throw new Error("The source image could not be downloaded.")
+  }
+
+  const contentLength = Number(sourceResponse.headers.get("Content-Length"))
+  const maximumImageBytes = 20 * 1024 * 1024
+
+  if (Number.isFinite(contentLength) && contentLength > maximumImageBytes) {
+    throw new Error("This image is too large to save.")
+  }
+
+  const body = Buffer.from(await sourceResponse.arrayBuffer())
+
+  if (body.byteLength > maximumImageBytes) {
+    throw new Error("This image is too large to save.")
+  }
+
+  const mimeType =
+    sourceResponse.headers.get("Content-Type")?.split(";")[0] || "image/jpeg"
+  const response = await drive.files.create({
+    fields: "id,name,mimeType,parents,thumbnailLink,appProperties,createdTime",
+    media: { body: Readable.from(body), mimeType },
+    requestBody: createCaptureMetadata(draft, folderId, mimeType),
+  })
+
+  return response.data
+}
+
+function createCaptureMetadata(
+  draft: CaptureDraft,
+  folderId: string,
+  mimeType: string
+) {
+  const extension =
+    mimeType.split("/")[1]?.replace(/[^a-z0-9.+-]/gi, "") || "jpg"
+  const fileName =
+    draft.kind === "video"
+      ? `${slugify(draft.title)}.stillroom.json`
+      : `${slugify(draft.title)}.${extension}`
+
+  return {
+    appProperties: {
+      stillroomKind: draft.kind,
+      stillroomType: "item",
+    },
+    description: JSON.stringify({
+      pageUrl: draft.pageUrl,
+      sourceUrl: draft.sourceUrl,
+      thumbnailUrl: draft.thumbnailUrl,
+      title: draft.title,
+    }),
+    mimeType,
+    name: fileName,
+    parents: [folderId],
+  }
+}
+
+function assertSafeRemoteSourceUrl(value: string) {
+  const url = new URL(value)
+  const hostname = url.hostname.toLowerCase()
+
+  if (!["http:", "https:"].includes(url.protocol)) {
+    throw new Error("Akasha can only save remote images.")
+  }
+
+  if (
+    hostname === "localhost" ||
+    hostname.endsWith(".localhost") ||
+    hostname.endsWith(".local") ||
+    isPrivateIpAddress(hostname)
+  ) {
+    throw new Error("Akasha cannot download images from private addresses.")
+  }
+}
+
+function isPrivateIpAddress(hostname: string) {
+  const ipVersion = isIP(hostname)
+
+  if (ipVersion === 4) {
+    const [first = 0, second = 0] = hostname.split(".").map(Number)
+    return (
+      first === 10 ||
+      first === 127 ||
+      (first === 169 && second === 254) ||
+      (first === 172 && second >= 16 && second <= 31) ||
+      (first === 192 && second === 168) ||
+      first === 0
+    )
+  }
+
+  if (ipVersion === 6) {
+    return (
+      hostname === "::1" ||
+      hostname === "::" ||
+      hostname.startsWith("fc") ||
+      hostname.startsWith("fd") ||
+      hostname.startsWith("fe8") ||
+      hostname.startsWith("fe9") ||
+      hostname.startsWith("fea") ||
+      hostname.startsWith("feb")
+    )
+  }
+
+  return false
+}
+
+function slugify(value: string) {
+  const slug = value
+    .toLocaleLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 80)
+
+  return slug || "saved-inspiration"
 }

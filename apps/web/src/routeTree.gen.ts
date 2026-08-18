@@ -11,6 +11,9 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiAuthGoogleRouteImport } from './routes/api/auth/google'
+import { Route as ApiExtensionAuthRouteImport } from './routes/api/extension/auth'
+import { Route as ApiExtensionCapturesRouteImport } from './routes/api/extension/captures'
+import { Route as ApiExtensionFoldersRouteImport } from './routes/api/extension/folders'
 import { Route as ApiMediaFileIdRouteImport } from './routes/api/media/$fileId'
 import { Route as ApiAuthGoogleCallbackRouteImport } from './routes/api/auth/google.callback'
 
@@ -22,6 +25,21 @@ const IndexRoute = IndexRouteImport.update({
 const ApiAuthGoogleRoute = ApiAuthGoogleRouteImport.update({
   id: '/api/auth/google',
   path: '/api/auth/google',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiExtensionAuthRoute = ApiExtensionAuthRouteImport.update({
+  id: '/api/extension/auth',
+  path: '/api/extension/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiExtensionCapturesRoute = ApiExtensionCapturesRouteImport.update({
+  id: '/api/extension/captures',
+  path: '/api/extension/captures',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiExtensionFoldersRoute = ApiExtensionFoldersRouteImport.update({
+  id: '/api/extension/folders',
+  path: '/api/extension/folders',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiMediaFileIdRoute = ApiMediaFileIdRouteImport.update({
@@ -38,12 +56,18 @@ const ApiAuthGoogleCallbackRoute = ApiAuthGoogleCallbackRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/auth/google': typeof ApiAuthGoogleRouteWithChildren
+  '/api/extension/auth': typeof ApiExtensionAuthRoute
+  '/api/extension/captures': typeof ApiExtensionCapturesRoute
+  '/api/extension/folders': typeof ApiExtensionFoldersRoute
   '/api/media/$fileId': typeof ApiMediaFileIdRoute
   '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/auth/google': typeof ApiAuthGoogleRouteWithChildren
+  '/api/extension/auth': typeof ApiExtensionAuthRoute
+  '/api/extension/captures': typeof ApiExtensionCapturesRoute
+  '/api/extension/folders': typeof ApiExtensionFoldersRoute
   '/api/media/$fileId': typeof ApiMediaFileIdRoute
   '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
 }
@@ -51,6 +75,9 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/auth/google': typeof ApiAuthGoogleRouteWithChildren
+  '/api/extension/auth': typeof ApiExtensionAuthRoute
+  '/api/extension/captures': typeof ApiExtensionCapturesRoute
+  '/api/extension/folders': typeof ApiExtensionFoldersRoute
   '/api/media/$fileId': typeof ApiMediaFileIdRoute
   '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
 }
@@ -59,18 +86,27 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/api/auth/google'
+    | '/api/extension/auth'
+    | '/api/extension/captures'
+    | '/api/extension/folders'
     | '/api/media/$fileId'
     | '/api/auth/google/callback'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/api/auth/google'
+    | '/api/extension/auth'
+    | '/api/extension/captures'
+    | '/api/extension/folders'
     | '/api/media/$fileId'
     | '/api/auth/google/callback'
   id:
     | '__root__'
     | '/'
     | '/api/auth/google'
+    | '/api/extension/auth'
+    | '/api/extension/captures'
+    | '/api/extension/folders'
     | '/api/media/$fileId'
     | '/api/auth/google/callback'
   fileRoutesById: FileRoutesById
@@ -78,6 +114,9 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiAuthGoogleRoute: typeof ApiAuthGoogleRouteWithChildren
+  ApiExtensionAuthRoute: typeof ApiExtensionAuthRoute
+  ApiExtensionCapturesRoute: typeof ApiExtensionCapturesRoute
+  ApiExtensionFoldersRoute: typeof ApiExtensionFoldersRoute
   ApiMediaFileIdRoute: typeof ApiMediaFileIdRoute
 }
 
@@ -95,6 +134,27 @@ declare module '@tanstack/react-router' {
       path: '/api/auth/google'
       fullPath: '/api/auth/google'
       preLoaderRoute: typeof ApiAuthGoogleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/extension/auth': {
+      id: '/api/extension/auth'
+      path: '/api/extension/auth'
+      fullPath: '/api/extension/auth'
+      preLoaderRoute: typeof ApiExtensionAuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/extension/captures': {
+      id: '/api/extension/captures'
+      path: '/api/extension/captures'
+      fullPath: '/api/extension/captures'
+      preLoaderRoute: typeof ApiExtensionCapturesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/extension/folders': {
+      id: '/api/extension/folders'
+      path: '/api/extension/folders'
+      fullPath: '/api/extension/folders'
+      preLoaderRoute: typeof ApiExtensionFoldersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/media/$fileId': {
@@ -129,6 +189,9 @@ const ApiAuthGoogleRouteWithChildren = ApiAuthGoogleRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiAuthGoogleRoute: ApiAuthGoogleRouteWithChildren,
+  ApiExtensionAuthRoute: ApiExtensionAuthRoute,
+  ApiExtensionCapturesRoute: ApiExtensionCapturesRoute,
+  ApiExtensionFoldersRoute: ApiExtensionFoldersRoute,
   ApiMediaFileIdRoute: ApiMediaFileIdRoute,
 }
 export const routeTree = rootRouteImport

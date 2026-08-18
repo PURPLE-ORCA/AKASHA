@@ -1,5 +1,5 @@
 import type { CaptureDraft } from "@akasha/contracts"
-import type { FolderOption } from "./google-drive"
+import type { FolderOption } from "./akasha-api"
 
 export type ExtensionRequest =
   | { type: "akasha:connect" }

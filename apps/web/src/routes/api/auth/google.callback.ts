@@ -1,6 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router"
 
 import { createGoogleOAuthClient } from "@/server/auth/google-oauth.server"
+import {
+  createExtensionCallbackUrl,
+  createExtensionCredentialCallback,
+} from "@/server/auth/extension-auth.server"
 import { useStillroomSession } from "@/server/auth/session.server"
 import { createRedirectResponse } from "@/server/http/redirect.server"
 
@@ -13,6 +17,7 @@ export const Route = createFileRoute("/api/auth/google/callback")({
         const returnedState = callbackUrl.searchParams.get("state")
         const authorizationError = callbackUrl.searchParams.get("error")
         const session = await useStillroomSession()
+        const extensionRedirectUri = session.data.extensionRedirectUri
 
         if (
           authorizationError ||
@@ -20,7 +25,20 @@ export const Route = createFileRoute("/api/auth/google/callback")({
           !returnedState ||
           returnedState !== session.data.oauthState
         ) {
-          await session.update({ oauthState: undefined })
+          await session.update({
+            ...session.data,
+            extensionRedirectUri: undefined,
+            oauthState: undefined,
+          })
+
+          if (extensionRedirectUri) {
+            return createRedirectResponse(
+              createExtensionCallbackUrl(extensionRedirectUri, {
+                error: "authorization_failed",
+              })
+            )
+          }
+
           return redirectToLibrary(request, "failed")
         }
 
@@ -30,7 +48,20 @@ export const Route = createFileRoute("/api/auth/google/callback")({
           tokens.refresh_token ?? session.data.googleRefreshToken
 
         if (!refreshToken) {
-          await session.update({ oauthState: undefined })
+          await session.update({
+            ...session.data,
+            extensionRedirectUri: undefined,
+            oauthState: undefined,
+          })
+
+          if (extensionRedirectUri) {
+            return createRedirectResponse(
+              createExtensionCallbackUrl(extensionRedirectUri, {
+                error: "authorization_failed",
+              })
+            )
+          }
+
           return redirectToLibrary(request, "failed")
         }
 
@@ -38,8 +69,19 @@ export const Route = createFileRoute("/api/auth/google/callback")({
           googleAccessToken: tokens.access_token ?? undefined,
           googleAccessTokenExpiresAt: tokens.expiry_date ?? undefined,
           googleRefreshToken: refreshToken,
+          extensionRedirectUri: undefined,
           oauthState: undefined,
         })
+
+        if (extensionRedirectUri) {
+          return createRedirectResponse(
+            createExtensionCredentialCallback(
+              extensionRedirectUri,
+              refreshToken
+            ),
+            303
+          )
+        }
 
         return redirectToLibrary(request, "connected")
       },

@@ -28,15 +28,15 @@ cp apps/web/.env.example apps/web/.env.local
 
 Enable the Google Drive API in a Google Cloud project, create a web OAuth client, and register `http://localhost:3000/api/auth/google/callback` as an authorized redirect URI. Add that client ID and secret to `apps/web/.env.local`, then generate a session secret of at least 32 characters.
 
-Create a Chrome Extension OAuth client for the capture extension and add its client ID to `extension/.env.local`:
+Create the extension environment:
 
 ```bash
 cp extension/.env.example extension/.env.local
 ```
 
-For Chromium browsers that do not expose Chrome profile authentication, also add the web OAuth client ID as `WXT_GOOGLE_WEB_CLIENT_ID` and register `https://cooplhaddmnookoploidbemfjdacgnoh.chromiumapp.org/oauth2` as an authorized redirect URI on that web client.
+`WXT_AKASHA_API_URL` points to `http://localhost:3000` during development. Set it to the deployed Akasha origin for production builds.
 
-Both clients must request the `drive.file` scope. This limits Akasha to files and folders it creates or opens through the app.
+The extension authenticates through the Akasha backend and stores a 90-day encrypted device credential. Google refresh tokens remain server-controlled and all Drive operations use the web OAuth client's `drive.file` scope, limiting Akasha to files and folders it creates or opens through the app.
 
 ## Development
 

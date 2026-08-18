@@ -1,5 +1,5 @@
+import { connectAkasha, listFolderOptions, saveCapture } from "@/utils/akasha-api"
 import { createCaptureDraft } from "@/utils/capture"
-import { connectDrive, listFolderOptions, saveCapture } from "@/utils/google-drive"
 import type { ExtensionRequest, ExtensionResponse, OpenCapturePanelMessage } from "@/utils/messages"
 import { captureDraftStorage } from "@/utils/storage"
 
@@ -60,11 +60,11 @@ async function handleExtensionRequest(
 ): Promise<ExtensionResponse<unknown>> {
   try {
     if (message.type === "akasha:connect") {
-      return { ok: true, value: await connectDrive() }
+      return { ok: true, value: await connectAkasha() }
     }
 
     if (message.type === "akasha:list-folders") {
-      return { ok: true, value: await listFolderOptions(false) }
+      return { ok: true, value: await listFolderOptions() }
     }
 
     if (message.type === "akasha:save") {
