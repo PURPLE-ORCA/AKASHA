@@ -1,4 +1,4 @@
-import type { CaptureDraft } from "@stillroom/contracts"
+import type { CaptureDraft } from "@akasha/contracts"
 import { storage } from "#imports"
 
 export const captureDraftStorage = storage.defineItem<CaptureDraft | null>("local:capture-draft", {

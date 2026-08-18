@@ -9,7 +9,7 @@ import {
 import { Typography } from "@heroui/react"
 import { Command } from "@heroui-pro/react"
 import { useNavigate } from "@tanstack/react-router"
-import type { LibraryFolder } from "@stillroom/contracts"
+import type { LibraryFolder } from "@akasha/contracts"
 
 import type { ThemePreference } from "@/features/theme/theme"
 
@@ -67,16 +67,16 @@ export function LibraryCommandPalette({
               <Command.InputGroup.ClearButton />
             </Command.InputGroup>
             <Command.List
-              aria-label="Stillroom commands"
+              aria-label="Akasha commands"
               renderEmptyState={() => (
                 <Typography color="muted">No matching commands.</Typography>
               )}
               onAction={runCommand}
             >
               <Command.Group heading="Folders">
-                <Command.Item id="folder:root" textValue="Stillroom home">
+                <Command.Item id="folder:root" textValue="Akasha home">
                   <HouseIcon aria-hidden="true" />
-                  <Typography>Stillroom</Typography>
+                  <Typography>Akasha</Typography>
                 </Command.Item>
                 {folders.map((folder) => (
                   <Command.Item

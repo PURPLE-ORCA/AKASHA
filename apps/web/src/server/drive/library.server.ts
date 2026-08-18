@@ -1,10 +1,10 @@
 import type { drive_v3 } from "googleapis"
-import { libraryFolderSchema, libraryItemSchema } from "@stillroom/contracts"
+import { libraryFolderSchema, libraryItemSchema } from "@akasha/contracts"
 import type {
   LibraryFolder,
   LibraryItem,
   MediaKind,
-} from "@stillroom/contracts"
+} from "@akasha/contracts"
 
 import {
   ensureStillroomRoot,
@@ -24,7 +24,7 @@ export async function loadDriveLibrary(
   const root = await ensureStillroomRoot(refreshToken)
 
   if (!root.id) {
-    throw new Error("Stillroom could not initialize the library root.")
+    throw new Error("Akasha could not initialize the library root.")
   }
 
   const files = await listStillroomFiles(refreshToken)

@@ -69,7 +69,7 @@ function LibraryLoadingFixture() {
   return (
     <div aria-hidden="true" className="library-shell library-loading-shell">
       <header className="library-header">
-        <div className="library-loading-crumb">Stillroom</div>
+        <div className="library-loading-crumb">Akasha</div>
         <div className="library-loading-theme">
           <span />
           <span />

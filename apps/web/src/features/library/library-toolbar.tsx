@@ -1,9 +1,10 @@
 import { MoonIcon, SunIcon, DesktopIcon } from "@phosphor-icons/react"
 import { Breadcrumbs } from "@heroui/react"
 import { Segment } from "@heroui-pro/react"
-import type { LibraryFolder } from "@stillroom/contracts"
+import type { LibraryFolder } from "@akasha/contracts"
 
 import type { ThemePreference } from "@/features/theme/theme"
+import { LibraryShortcuts } from "./library-shortcuts"
 
 type LibraryToolbarProps = {
   folderPath: LibraryFolder[]
@@ -20,7 +21,7 @@ export function LibraryToolbar({
     <header className="library-header">
       <div className="library-header__crumbs">
         <Breadcrumbs aria-label="Current folder">
-          <Breadcrumbs.Item href="/">Stillroom</Breadcrumbs.Item>
+          <Breadcrumbs.Item href="/">Akasha</Breadcrumbs.Item>
           {folderPath.map((folder) => (
             <Breadcrumbs.Item href={`/?folder=${folder.id}`} key={folder.id}>
               {folder.name}
@@ -29,6 +30,7 @@ export function LibraryToolbar({
         </Breadcrumbs>
       </div>
       <div className="library-header__controls">
+        <LibraryShortcuts />
         <Segment
           aria-label="Theme"
           selectedKey={theme}

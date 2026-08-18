@@ -37,7 +37,7 @@ export async function ensureStillroomRoot(refreshToken: string) {
     requestBody: {
       appProperties: { [ROOT_PROPERTY_KEY]: ROOT_PROPERTY_VALUE },
       mimeType: FOLDER_MIME_TYPE,
-      name: "Stillroom",
+      name: "Akasha",
     },
   })
 

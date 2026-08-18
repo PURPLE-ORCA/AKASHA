@@ -15,6 +15,10 @@ export async function getGoogleAccessToken(interactive: boolean) {
     return storedAuth.accessToken
   }
 
+  if (!interactive) {
+    throw new Error("Connect Google Drive to continue.")
+  }
+
   return authorizeWithWebFlow(interactive)
 }
 

@@ -1,4 +1,6 @@
 import { createCaptureDraft } from "@/utils/capture"
+import { connectDrive, listFolderOptions, saveCapture } from "@/utils/google-drive"
+import type { ExtensionRequest, ExtensionResponse, OpenCapturePanelMessage } from "@/utils/messages"
 import { captureDraftStorage } from "@/utils/storage"
 
 const CAPTURE_MENU_ID = "stillroom-capture-media"
@@ -8,7 +10,7 @@ export default defineBackground(() => {
     browser.contextMenus.create({
       contexts: ["image", "video"],
       id: CAPTURE_MENU_ID,
-      title: "Save to Stillroom",
+      title: "Save to Akasha",
     })
   })
 
@@ -29,13 +31,55 @@ export default defineBackground(() => {
 
     await captureDraftStorage.setValue(draft)
 
-    try {
-      await browser.action.openPopup()
-    } catch {
-      await showCaptureNotification("Ready to save", "Open Stillroom Capture to choose a folder.")
-    }
+    await openCapturePanel(tab?.id)
   })
+
+  browser.action.onClicked.addListener((tab) => openCapturePanel(tab.id))
+
+  browser.runtime.onMessage.addListener((message: ExtensionRequest) =>
+    handleExtensionRequest(message)
+  )
 })
+
+async function openCapturePanel(tabId?: number) {
+  if (!tabId) return
+
+  try {
+    const message: OpenCapturePanelMessage = { type: "akasha:open-capture" }
+    await browser.tabs.sendMessage(tabId, message)
+  } catch {
+    await showCaptureNotification(
+      "Open a webpage",
+      "Akasha Capture is available on regular webpages."
+    )
+  }
+}
+
+async function handleExtensionRequest(
+  message: ExtensionRequest
+): Promise<ExtensionResponse<unknown>> {
+  try {
+    if (message.type === "akasha:connect") {
+      return { ok: true, value: await connectDrive() }
+    }
+
+    if (message.type === "akasha:list-folders") {
+      return { ok: true, value: await listFolderOptions(false) }
+    }
+
+    if (message.type === "akasha:save") {
+      await saveCapture(message.draft, message.folderId)
+      return { ok: true, value: undefined }
+    }
+
+    return { ok: false, error: "Akasha could not complete that action." }
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Akasha could not complete that action.",
+    }
+  }
+}
 
 async function showCaptureNotification(title: string, message: string) {
   await browser.notifications.create({

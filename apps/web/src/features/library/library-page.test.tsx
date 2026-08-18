@@ -16,10 +16,13 @@ describe("LibraryPage", () => {
     )
 
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
-      "Stillroom"
+      "Akasha"
     )
     expect(screen.getByRole("tab", { name: "All" })).toBeTruthy()
     expect(screen.getByRole("tab", { name: "Folders" })).toBeTruthy()
+    expect(
+      screen.getByRole("button", { name: "Keyboard shortcuts" })
+    ).toBeTruthy()
     expect(screen.getByRole("button", { name: "Create folder" })).toBeTruthy()
     expect(screen.queryByRole("img")).toBeNull()
   })

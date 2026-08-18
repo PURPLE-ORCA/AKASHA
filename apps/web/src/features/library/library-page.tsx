@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from "react"
 import { FolderSimplePlusIcon } from "@phosphor-icons/react"
 import { Label, Tabs, Typography } from "@heroui/react"
 import { ContextMenu } from "@heroui-pro/react"
-import { getFolderPath } from "@stillroom/contracts"
-import type { LibraryFolder } from "@stillroom/contracts"
+import { getFolderPath } from "@akasha/contracts"
+import type { LibraryFolder } from "@akasha/contracts"
 
 import type { DriveLibrarySnapshot } from "@/server/drive/library.server"
 import {
@@ -55,7 +55,7 @@ export function LibraryPage({
     () => getFolderPath(folders, selectedFolderId),
     [folders, selectedFolderId]
   )
-  const selectedFolderName = folderPath.at(-1)?.name ?? "Stillroom"
+  const selectedFolderName = folderPath.at(-1)?.name ?? "Akasha"
   const visibleItems = useMemo(
     () =>
       selectedFolderId === rootFolderId
@@ -82,7 +82,7 @@ export function LibraryPage({
     if (movingItem?.folderId !== rootFolderId) {
       destinations.unshift({
         id: rootFolderId,
-        name: "Stillroom",
+        name: "Akasha",
         parentId: null,
       })
     }
@@ -209,7 +209,11 @@ export function LibraryPage({
                 </Tabs.Panel>
                 <Tabs.Panel id="folders">
                   <div className="library-content">
-                    <FolderGallery folders={visibleFolders} />
+                    <FolderGallery
+                      folders={visibleFolders}
+                      items={items}
+                      libraryFolders={folders}
+                    />
                   </div>
                 </Tabs.Panel>
               </Tabs>

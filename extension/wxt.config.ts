@@ -10,8 +10,8 @@ export default defineConfig({
     const googleClientId = import.meta.env.WXT_GOOGLE_CLIENT_ID
 
     return {
-      name: "Stillroom Capture",
-      description: "Capture visual inspiration into your Stillroom library.",
+      name: "Akasha Capture",
+      description: "Capture visual inspiration into your Akasha library.",
       key: extensionKey,
       permissions: ["contextMenus", "identity", "notifications", "storage"],
       host_permissions: ["<all_urls>"],

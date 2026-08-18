@@ -20,6 +20,7 @@ describe("AuthLanding", () => {
     expect(
       screen.getByRole("button", { name: "Continue with Google" })
     ).toBeTruthy()
+    expect(screen.getByText("Akasha")).toBeTruthy()
     expect(screen.queryByRole("alert")).toBeNull()
   })
 

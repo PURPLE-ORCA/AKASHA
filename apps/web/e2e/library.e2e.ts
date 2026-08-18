@@ -33,7 +33,7 @@ test("offers recovery when Google connection fails", async ({ page }) => {
   await page.goto("/?connection=failed")
 
   await expect(page.getByRole("alert")).toContainText(
-    "Stillroom couldn’t connect your library"
+    "Akasha couldn’t connect your library"
   )
   await expect(
     page.getByRole("button", { name: "Continue with Google" })

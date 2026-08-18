@@ -1,7 +1,7 @@
 import { GoogleLogoIcon } from "@phosphor-icons/react"
 import { Button, Typography } from "@heroui/react"
 
-import { StillroomBrand } from "@/components/stillroom/brand"
+import { AkashaBrand } from "@/components/stillroom/brand"
 
 type AuthLandingProps = {
   connectionFailed?: boolean
@@ -11,7 +11,7 @@ export function AuthLanding({ connectionFailed = false }: AuthLandingProps) {
   return (
     <main className="auth-shell" id="main-content">
       <section className="auth-panel">
-        <StillroomBrand />
+        <AkashaBrand />
         <Typography type="h1">Keep the ideas worth returning to.</Typography>
         <Typography color="muted">
           Collect images and visual references in one calm, private space.
@@ -24,7 +24,7 @@ export function AuthLanding({ connectionFailed = false }: AuthLandingProps) {
         </form>
         {connectionFailed ? (
           <Typography color="muted" role="alert" type="body-sm">
-            Stillroom couldn’t connect your library. Try again.
+            Akasha couldn’t connect your library. Try again.
           </Typography>
         ) : null}
       </section>

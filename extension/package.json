@@ -1,6 +1,6 @@
 {
-  "name": "@stillroom/capture",
-  "description": "Capture images and showcase videos into your Stillroom library.",
+  "name": "@akasha/capture",
+  "description": "Capture images and showcase videos into your Akasha library.",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -16,7 +16,7 @@
     "postinstall": "wxt prepare"
   },
   "dependencies": {
-    "@stillroom/contracts": "workspace:*",
+    "@akasha/contracts": "workspace:*",
     "@phosphor-icons/react": "^2.1.10",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"

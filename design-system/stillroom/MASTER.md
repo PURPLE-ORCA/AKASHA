@@ -1,11 +1,11 @@
-# Stillroom Design System
+# Akasha Design System
 
-This file is the visual source of truth for Stillroom. HeroUI v3 and HeroUI Pro
+This file is the visual source of truth for Akasha. HeroUI v3 and HeroUI Pro
 are the implementation source of truth for tokens and base components.
 
 ## Product character
 
-Stillroom is a quiet, personal visual archive. The interface should feel composed,
+Akasha is a quiet, personal visual archive. The interface should feel composed,
 editorial, and fast without competing with the collected work.
 
 - Content-first, calm, and compact.
@@ -38,7 +38,7 @@ HeroUI's light and dark token maps must stay paired. Accent color remains restra
 ### Typography
 
 - **Manrope Variable:** body copy, controls, labels, navigation, and metadata.
-- **Oxanium Variable:** Stillroom wordmark and rare display accents only.
+- **Oxanium Variable:** Akasha wordmark and rare display accents only.
 - Body text starts at `1rem` on small screens.
 - Metadata may use `0.75rem`; no functional copy should be smaller.
 - Prefer weight and spacing over color to establish hierarchy.
@@ -64,7 +64,7 @@ Use `@heroui/react` and `@heroui-pro/react` components.
 
 - Do not pass `className` overrides to HeroUI components.
 - Configure primitives only through documented props, variants, sizes, slots, and semantic tokens.
-- Put layout styles on surrounding elements or dedicated Stillroom composition components.
+- Put layout styles on surrounding elements or dedicated Akasha composition components.
 - Product compositions belong in `components/stillroom` or their owning feature.
 - Use the existing Phosphor icon family consistently. No emoji icons.
 - Icon-only controls require an accessible name and at least a 44px hit target.

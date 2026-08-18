@@ -1,5 +1,5 @@
-import type { CaptureDraft } from "@stillroom/contracts"
-import { captureDraftSchema } from "@stillroom/contracts"
+import type { CaptureDraft } from "@akasha/contracts"
+import { captureDraftSchema } from "@akasha/contracts"
 
 type CaptureContext = {
   mediaType?: string

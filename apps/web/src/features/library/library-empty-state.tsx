@@ -28,7 +28,7 @@ export function LibraryEmptyState({ onCreateFolder }: LibraryEmptyStateProps) {
             onCreate={onCreateFolder}
             onOpenChange={setIsOpen}
             open={isOpen}
-            parentName="Stillroom"
+            parentName="Akasha"
             triggerLabel="Create folder"
           />
         </EmptyState.Content>

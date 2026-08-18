@@ -1,4 +1,4 @@
-import type { CaptureDraft } from "@stillroom/contracts"
+import type { CaptureDraft } from "@akasha/contracts"
 import { getGoogleAccessToken } from "./google-oauth"
 
 const DRIVE_API_URL = "https://www.googleapis.com/drive/v3"
@@ -63,7 +63,7 @@ async function ensureStillroomRoot(accessToken: string) {
     body: JSON.stringify({
       appProperties: { [ROOT_ROLE_KEY]: ROOT_ROLE_VALUE },
       mimeType: FOLDER_MIME_TYPE,
-      name: "Stillroom",
+      name: "Akasha",
     }),
   })
 }
@@ -89,7 +89,7 @@ function flattenFolders(root: DriveFile, folders: DriveFile[]) {
     }
   }
 
-  const options: FolderOption[] = [{ id: root.id, label: root.name }]
+  const options: FolderOption[] = [{ id: root.id, label: "Akasha" }]
   appendFolderOptions(root.id, 1, childrenByParent, options)
 
   return options
@@ -171,7 +171,7 @@ async function uploadRequest(accessToken: string, body: FormData) {
   )
 
   if (!response.ok) {
-    throw new Error("Stillroom could not save this item.")
+    throw new Error("Akasha could not save this item.")
   }
 
   return response.json() as Promise<DriveFile>
@@ -188,7 +188,7 @@ async function driveRequest<T>(path: string, accessToken: string, init?: Request
   })
 
   if (!response.ok) {
-    throw new Error("Stillroom could not reach your library.")
+    throw new Error("Akasha could not reach your library.")
   }
 
   return response.json() as Promise<T>

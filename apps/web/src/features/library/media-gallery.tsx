@@ -10,7 +10,7 @@ import {
 } from "@phosphor-icons/react"
 import { Button, Label, Modal, Typography } from "@heroui/react"
 import { ContextMenu } from "@heroui-pro/react"
-import type { LibraryItem } from "@stillroom/contracts"
+import type { LibraryItem } from "@akasha/contracts"
 
 const INITIAL_RENDER_COUNT = 48
 const RENDER_BATCH_SIZE = 48

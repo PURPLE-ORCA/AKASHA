@@ -11,7 +11,7 @@ import {
   TextField,
   Typography,
 } from "@heroui/react"
-import type { LibraryFolder } from "@stillroom/contracts"
+import type { LibraryFolder } from "@akasha/contracts"
 
 type NewFolderDialogProps = {
   open: boolean
