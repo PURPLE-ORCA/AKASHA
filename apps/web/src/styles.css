@@ -66,6 +66,7 @@
 .library-header__crumbs { min-width: 0; overflow: hidden; }
 .library-header__controls { display: flex; flex: none; align-items: center; gap: 0.75rem; }
 .library-main { width: 100%; padding: 1rem clamp(0.75rem, 1.5vw, 1.5rem) 3rem; }
+[data-library-context-trigger] { display: block; width: 100%; min-height: calc(100svh - 4.5rem); }
 .library-tabs { margin-block-end: 1.5rem; }
 [data-library-tabs-list-container] { width: fit-content; max-width: 100%; }
 .library-content { min-height: calc(100svh - 10rem); }

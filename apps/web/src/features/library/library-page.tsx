@@ -163,7 +163,9 @@ export function LibraryPage({
         theme={theme}
       />
       <ContextMenu>
-        <ContextMenu.Trigger>
+        <ContextMenu.Trigger
+          render={(props) => <div {...props} data-library-context-trigger />}
+        >
           <main className="library-main" id="main-content">
             <div className="sr-only">
               <Typography type="h1">{selectedFolderName}</Typography>
