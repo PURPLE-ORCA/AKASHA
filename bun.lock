@@ -27,6 +27,7 @@
         "@tanstack/react-router-ssr-query": "latest",
         "@tanstack/react-start": "latest",
         "@tanstack/router-plugin": "latest",
+        "boneyard-js": "^1.9.0",
         "googleapis": "^174.0.1",
         "motion": ">=12.12.0",
         "react": "^19.2.6",
@@ -166,6 +167,8 @@
     "@biomejs/cli-win32-x64": ["@biomejs/cli-win32-x64@2.5.8", "", { "os": "win32", "cpu": "x64" }, "sha512-I2czzXTY61f3nFJxXoMDq80t7MivxDEnCjE+8sDKoFfcKMaoQdkqhIFQ3KyY0XLzeSpUBYeNAXgD+iOV/BU0VA=="],
 
     "@bramus/specificity": ["@bramus/specificity@2.4.2", "", { "dependencies": { "css-tree": "^3.0.0" }, "bin": { "specificity": "bin/cli.js" } }, "sha512-ctxtJ/eA+t+6q2++vj5j7FYX3nRu311q1wfYH3xjlLOsczhlhxAg2FWNUXhpGvAw3BWo1xBcvOV6/YLc2r5FJw=="],
+
+    "@chenglou/pretext": ["@chenglou/pretext@0.0.5", "", {}, "sha512-A8GZN10REdFGsyuiUgLV8jjPDDFMg5GmgxGWV0I3igxBOnzj+jgz2VMmVD7g+SFyoctfeqHFxbNatKSzVRWtRg=="],
 
     "@clack/core": ["@clack/core@1.1.0", "", { "dependencies": { "sisteransi": "^1.0.5" } }, "sha512-SVcm4Dqm2ukn64/8Gub2wnlA5nS2iWJyCkdNHcvNHPIeBTGojpdJ+9cZKwLfmqy7irD4N5qLteSilJlE0WLAtA=="],
 
@@ -716,6 +719,8 @@
     "bluebird": ["bluebird@3.7.2", "", {}, "sha512-XpNj6GDQzdfW+r2Wnn7xiSAd7TM3jzkxGXBGTtWKuSXv1xUV+azxAm8jdWZN06QTQk+2N2XB9jRDkvbmQmcRtg=="],
 
     "body-parser": ["body-parser@2.3.0", "", { "dependencies": { "bytes": "^3.1.2", "content-type": "^2.0.0", "debug": "^4.4.3", "http-errors": "^2.0.1", "iconv-lite": "^0.7.2", "on-finished": "^2.4.1", "qs": "^6.15.2", "raw-body": "^3.0.2", "type-is": "^2.1.0" } }, "sha512-2cGmJupaNgg+QUwVLAucDuWuoMZ6EX9iHDRswZ5lsNYEmwPaRknMPCLZz07yTzVq/83p4o/wzbDZbBrTvGGTIw=="],
+
+    "boneyard-js": ["boneyard-js@1.9.0", "", { "dependencies": { "playwright": "^1.58.2" }, "optionalDependencies": { "@chenglou/pretext": "^0.0.5" }, "peerDependencies": { "@angular/core": ">=14", "preact": ">=10", "react": ">=18", "react-native": ">=0.71", "svelte": ">=5.29", "vite": ">=5", "vue": ">=3" }, "optionalPeers": ["@angular/core", "preact", "react", "react-native", "svelte", "vite", "vue"], "bin": { "boneyard-js": "bin/cli.js" } }, "sha512-FlIHm7YyQ6GMBPaNY6um5ESHNyZGONoSZ0IMhayuyemBsCUhhDl4nC/gMTOi/25ojtrlnRInTWKqFKb7hGK6Cg=="],
 
     "boolbase": ["boolbase@2.0.0", "", {}, "sha512-DkVaaQHymRhpYEYo9x1oo7Q7B0Y6KJUsjm3c9eTyFDby4MHLBTwZ6ZDWBel5zrYxj1WsZgC5oLpiz+93MluXeA=="],
 

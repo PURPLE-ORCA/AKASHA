@@ -1,0 +1,10 @@
+{
+  "breakpoints": [375, 768, 1024, 1440],
+  "out": "./src/bones",
+  "wait": 800,
+  "color": "#eeeaf5",
+  "darkColor": "#302c38",
+  "animate": "pulse",
+  "transition": 180,
+  "select": "viewport"
+}
