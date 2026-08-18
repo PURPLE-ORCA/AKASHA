@@ -11,7 +11,7 @@ import { Command } from "@heroui-pro/react"
 import { useNavigate } from "@tanstack/react-router"
 import type { LibraryFolder } from "@stillroom/contracts"
 
-import type { ThemePreference } from "./library-toolbar"
+import type { ThemePreference } from "@/features/theme/theme"
 
 type LibraryCommandPaletteProps = {
   folders: LibraryFolder[]

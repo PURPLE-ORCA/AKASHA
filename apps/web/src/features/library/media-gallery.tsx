@@ -12,18 +12,14 @@ import { Button, Label, Modal, Typography } from "@heroui/react"
 import { ContextMenu } from "@heroui-pro/react"
 import type { LibraryItem } from "@stillroom/contracts"
 
-import type { GalleryLayout } from "./library-toolbar"
-
 type MediaGalleryProps = {
   items: LibraryItem[]
-  layout: GalleryLayout
   onMoveItem: (itemId: string) => void
   onRemoveItem: (itemId: string) => void
 }
 
 export function MediaGallery({
   items,
-  layout,
   onMoveItem,
   onRemoveItem,
 }: MediaGalleryProps) {
@@ -43,11 +39,7 @@ export function MediaGallery({
 
   return (
     <>
-      <div
-        aria-label="Saved images"
-        className="media-grid"
-        data-layout={layout}
-      >
+      <div aria-label="Saved images" className="media-grid">
         {displayItems.map((item, index) => (
           <MediaCard
             item={item}

@@ -6,6 +6,12 @@ import { getFolderPath } from "@stillroom/contracts"
 import type { LibraryFolder } from "@stillroom/contracts"
 
 import type { DriveLibrarySnapshot } from "@/server/drive/library.server"
+import {
+  applyTheme,
+  isThemePreference,
+  resolveTheme,
+} from "@/features/theme/theme"
+import type { ThemePreference } from "@/features/theme/theme"
 import { FolderGallery } from "./folder-tree"
 import {
   MoveItemsDialog,
@@ -15,7 +21,6 @@ import {
 import { LibraryCommandPalette } from "./library-command-palette"
 import { LibraryEmptyState } from "./library-empty-state"
 import { LibraryToolbar } from "./library-toolbar"
-import type { GalleryLayout, ThemePreference } from "./library-toolbar"
 import { MediaGallery } from "./media-gallery"
 import {
   createLibraryFolder,
@@ -37,7 +42,6 @@ export function LibraryPage({
   const [activeTab, setActiveTab] = useState<"all" | "folders">("all")
   const [commandOpen, setCommandOpen] = useState(false)
   const [createFolderOpen, setCreateFolderOpen] = useState(false)
-  const [layout, setLayout] = useState<GalleryLayout>("cards")
   const [moveItemId, setMoveItemId] = useState<string | null>(null)
   const [removeItemId, setRemoveItemId] = useState<string | null>(null)
   const [theme, setTheme] = useState<ThemePreference>("system")
@@ -88,12 +92,8 @@ export function LibraryPage({
 
   useEffect(() => {
     const savedTheme = window.localStorage.getItem("stillroom-theme")
-    const savedLayout = window.localStorage.getItem("stillroom-layout")
 
     if (isThemePreference(savedTheme)) setTheme(savedTheme)
-    if (savedLayout === "cards" || savedLayout === "list") {
-      setLayout(savedLayout)
-    }
   }, [])
 
   useEffect(() => {
@@ -104,10 +104,6 @@ export function LibraryPage({
     window.localStorage.setItem("stillroom-theme", theme)
     return () => media.removeEventListener("change", apply)
   }, [theme])
-
-  useEffect(() => {
-    window.localStorage.setItem("stillroom-layout", layout)
-  }, [layout])
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -163,8 +159,6 @@ export function LibraryPage({
     <div className="library-shell">
       <LibraryToolbar
         folderPath={folderPath}
-        layout={layout}
-        onLayoutChange={setLayout}
         onThemeChange={setTheme}
         theme={theme}
       />
@@ -182,7 +176,11 @@ export function LibraryPage({
                   setActiveTab(key as "all" | "folders")
                 }
               >
-                <Tabs.ListContainer>
+                <Tabs.ListContainer
+                  render={(props) => (
+                    <div {...props} data-library-tabs-list-container />
+                  )}
+                >
                   <Tabs.List aria-label="Library views">
                     <Tabs.Tab id="all">
                       All
@@ -201,7 +199,6 @@ export function LibraryPage({
                     ) : (
                       <MediaGallery
                         items={visibleItems}
-                        layout={layout}
                         onMoveItem={setMoveItemId}
                         onRemoveItem={setRemoveItemId}
                       />
@@ -271,22 +268,4 @@ function getSelectedFolderId(
     folders.some((folder) => folder.id === requestedFolderId)
     ? requestedFolderId
     : rootFolderId
-}
-
-function isThemePreference(value: string | null): value is ThemePreference {
-  return value === "light" || value === "dark" || value === "system"
-}
-
-function resolveTheme(theme: ThemePreference) {
-  if (theme !== "system") return theme
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light"
-}
-
-function applyTheme(theme: ThemePreference, systemIsDark: boolean) {
-  const resolved =
-    theme === "system" ? (systemIsDark ? "dark" : "light") : theme
-  document.documentElement.classList.toggle("dark", resolved === "dark")
-  document.documentElement.dataset.theme = resolved
 }

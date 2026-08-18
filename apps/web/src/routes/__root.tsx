@@ -7,6 +7,7 @@ import {
 import { Link, Typography } from "@heroui/react"
 import { RouterProvider } from "react-aria-components"
 
+import { themeBootstrapScript } from "@/features/theme/theme"
 import appCss from "../styles.css?url"
 
 export const Route = createRootRoute({
@@ -55,8 +56,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate()
 
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
         <HeadContent />
       </head>
       <body>
