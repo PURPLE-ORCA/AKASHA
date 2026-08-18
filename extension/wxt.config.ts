@@ -13,6 +13,7 @@ export default defineConfig({
       name: "Akasha Capture",
       description: "Capture visual inspiration into your Akasha library.",
       key: extensionKey,
+      action: {},
       permissions: ["contextMenus", "identity", "notifications", "storage"],
       host_permissions: ["<all_urls>"],
       ...(googleClientId
