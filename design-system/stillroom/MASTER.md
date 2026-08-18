@@ -30,8 +30,8 @@ Use HeroUI semantic tokens. Do not add raw color values in components.
 | Supporting text | `muted` | Metadata and secondary labels |
 | Interactive surface | `default` | Neutral interactive controls |
 | Structure | `border` | Dividers, card edges, and hierarchy lines |
-| Focus | `ring` | Keyboard focus indication |
-| Destructive | `destructive` | Remove and irreversible actions only |
+| Focus | `focus` | Keyboard focus indication |
+| Destructive | `danger` | Remove and irreversible actions only |
 
 HeroUI's light and dark token maps must stay paired. Accent color remains restrained.
 
@@ -73,9 +73,10 @@ Use `@heroui/react` and `@heroui-pro/react` components.
 
 ### Desktop
 
-- No sidebar. Breadcrumbs lead the header; theme and layout segments trail it.
+- No sidebar. Breadcrumbs lead the header; the theme segment trails it.
 - All and Folders tabs provide the only top-level library views.
-- The media gallery uses the full viewport width in masonry or list layout.
+- The content-sized tab list sits above full-width panels.
+- The media gallery uses the full viewport width in a cards-only masonry layout.
 - Media management is contextual: create on empty space; move and delete on media.
 
 ### Mobile
