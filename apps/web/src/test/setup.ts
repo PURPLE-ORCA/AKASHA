@@ -16,6 +16,8 @@ if (typeof window !== "undefined") {
     writable: true,
   })
 
+  Element.prototype.getAnimations = vi.fn(() => [])
+
   class ResizeObserverMock {
     disconnect = vi.fn()
     observe = vi.fn()

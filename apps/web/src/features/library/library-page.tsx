@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { FolderSimplePlusIcon } from "@phosphor-icons/react"
-import { Label, Tabs, Typography } from "@heroui/react"
+import { Label, Typography } from "@heroui/react"
 import { ContextMenu } from "@heroui-pro/react"
 import { getFolderPath } from "@akasha/contracts"
 import type { LibraryFolder } from "@akasha/contracts"
@@ -107,26 +107,37 @@ export function LibraryPage({
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      const target = event.target as HTMLElement | null
+      const target = event.target instanceof HTMLElement ? event.target : null
       const isTyping =
-        target?.matches("input, textarea, select") || target?.isContentEditable
+        target?.matches("input, textarea, select") ||
+        target?.isContentEditable ||
+        Boolean(target?.closest('[contenteditable="true"]'))
 
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+      if (event.defaultPrevented || event.repeat) return
+
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        !event.altKey &&
+        event.key.toLowerCase() === "k"
+      ) {
         event.preventDefault()
         setCommandOpen((open) => !open)
         return
       }
 
-      if (
-        !isTyping &&
-        !event.metaKey &&
-        !event.ctrlKey &&
-        event.key.toLowerCase() === "d"
-      ) {
-        event.preventDefault()
-        setTheme((current) =>
-          resolveTheme(current) === "dark" ? "light" : "dark"
-        )
+      if (isTyping || event.metaKey || event.ctrlKey || event.altKey) return
+
+      switch (event.key.toLowerCase()) {
+        case "d":
+          event.preventDefault()
+          setTheme((current) =>
+            resolveTheme(current) === "dark" ? "light" : "dark"
+          )
+          break
+        case "s":
+          event.preventDefault()
+          setActiveTab((current) => (current === "all" ? "folders" : "all"))
+          break
       }
     }
 
@@ -158,8 +169,10 @@ export function LibraryPage({
   return (
     <div className="library-shell">
       <LibraryToolbar
+        activeView={activeTab}
         folderPath={folderPath}
         onThemeChange={setTheme}
+        onViewChange={setActiveTab}
         theme={theme}
       />
       <ContextMenu>
@@ -170,53 +183,24 @@ export function LibraryPage({
             <div className="sr-only">
               <Typography type="h1">{selectedFolderName}</Typography>
             </div>
-            <div className="library-tabs">
-              <Tabs
-                selectedKey={activeTab}
-                variant="secondary"
-                onSelectionChange={(key) =>
-                  setActiveTab(key as "all" | "folders")
-                }
-              >
-                <Tabs.ListContainer
-                  render={(props) => (
-                    <div {...props} data-library-tabs-list-container />
-                  )}
-                >
-                  <Tabs.List aria-label="Library views">
-                    <Tabs.Tab id="all">
-                      All
-                      <Tabs.Indicator />
-                    </Tabs.Tab>
-                    <Tabs.Tab id="folders">
-                      Folders
-                      <Tabs.Indicator />
-                    </Tabs.Tab>
-                  </Tabs.List>
-                </Tabs.ListContainer>
-                <Tabs.Panel id="all">
-                  <div className="library-content">
-                    {isLibraryEmpty ? (
-                      <LibraryEmptyState onCreateFolder={createFolder} />
-                    ) : (
-                      <MediaGallery
-                        items={visibleItems}
-                        onMoveItem={setMoveItemId}
-                        onRemoveItem={setRemoveItemId}
-                      />
-                    )}
-                  </div>
-                </Tabs.Panel>
-                <Tabs.Panel id="folders">
-                  <div className="library-content">
-                    <FolderGallery
-                      folders={visibleFolders}
-                      items={items}
-                      libraryFolders={folders}
-                    />
-                  </div>
-                </Tabs.Panel>
-              </Tabs>
+            <div className="library-content">
+              {activeTab === "all" ? (
+                isLibraryEmpty ? (
+                  <LibraryEmptyState onCreateFolder={createFolder} />
+                ) : (
+                  <MediaGallery
+                    items={visibleItems}
+                    onMoveItem={setMoveItemId}
+                    onRemoveItem={setRemoveItemId}
+                  />
+                )
+              ) : (
+                <FolderGallery
+                  folders={visibleFolders}
+                  items={items}
+                  libraryFolders={folders}
+                />
+              )}
             </div>
           </main>
         </ContextMenu.Trigger>

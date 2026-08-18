@@ -7,14 +7,18 @@ import type { ThemePreference } from "@/features/theme/theme"
 import { LibraryShortcuts } from "./library-shortcuts"
 
 type LibraryToolbarProps = {
+  activeView: "all" | "folders"
   folderPath: LibraryFolder[]
   onThemeChange: (theme: ThemePreference) => void
+  onViewChange: (view: "all" | "folders") => void
   theme: ThemePreference
 }
 
 export function LibraryToolbar({
+  activeView,
   folderPath,
   onThemeChange,
+  onViewChange,
   theme,
 }: LibraryToolbarProps) {
   return (
@@ -31,6 +35,16 @@ export function LibraryToolbar({
       </div>
       <div className="library-header__controls">
         <LibraryShortcuts />
+        <Segment
+          aria-label="Library views"
+          selectedKey={activeView}
+          size="sm"
+          variant="default"
+          onSelectionChange={(key) => onViewChange(key as "all" | "folders")}
+        >
+          <Segment.Item id="all">All</Segment.Item>
+          <Segment.Item id="folders">Folders</Segment.Item>
+        </Segment>
         <Segment
           aria-label="Theme"
           selectedKey={theme}

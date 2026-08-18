@@ -70,17 +70,19 @@ function LibraryLoadingFixture() {
     <div aria-hidden="true" className="library-shell library-loading-shell">
       <header className="library-header">
         <div className="library-loading-crumb">Akasha</div>
-        <div className="library-loading-theme">
-          <span />
-          <span />
-          <span />
+        <div className="library-loading-controls">
+          <div className="library-loading-view">
+            <span />
+            <span />
+          </div>
+          <div className="library-loading-theme">
+            <span />
+            <span />
+            <span />
+          </div>
         </div>
       </header>
       <main className="library-main">
-        <div className="library-loading-tabs">
-          <span>All</span>
-          <span>Folders</span>
-        </div>
         <div className="media-grid">
           {Array.from({ length: 16 }, (_, index) => (
             <div className="media-unit" key={index}>

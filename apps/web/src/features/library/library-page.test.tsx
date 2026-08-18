@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from "@testing-library/react"
+import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it } from "vitest"
 
 import { LibraryPage } from "./library-page"
@@ -15,16 +15,41 @@ describe("LibraryPage", () => {
       />
     )
 
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
-      "Akasha"
-    )
-    expect(screen.getByRole("tab", { name: "All" })).toBeTruthy()
-    expect(screen.getByRole("tab", { name: "Folders" })).toBeTruthy()
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("Akasha")
+    expect(
+      screen.getByRole("radio", { name: "All" }).getAttribute("aria-checked")
+    ).toBe("true")
+    expect(screen.getByRole("radio", { name: "Folders" })).toBeTruthy()
     expect(
       screen.getByRole("button", { name: "Keyboard shortcuts" })
     ).toBeTruthy()
     expect(screen.getByRole("button", { name: "Create folder" })).toBeTruthy()
     expect(screen.queryByRole("img")).toBeNull()
+  })
+
+  it("switches between All and Folders with the S shortcut", () => {
+    render(
+      <LibraryPage
+        initialSnapshot={{
+          folders: [],
+          items: [],
+          rootFolderId: "root",
+        }}
+      />
+    )
+
+    fireEvent.keyDown(window, { key: "s" })
+    expect(
+      screen
+        .getByRole("radio", { name: "Folders" })
+        .getAttribute("aria-checked")
+    ).toBe("true")
+    expect(screen.getByText("No folders here yet.")).toBeTruthy()
+
+    fireEvent.keyDown(window, { key: "S" })
+    expect(
+      screen.getByRole("radio", { name: "All" }).getAttribute("aria-checked")
+    ).toBe("true")
   })
 
   it("renders connected media as image-only cards", () => {

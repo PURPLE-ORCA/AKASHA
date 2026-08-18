@@ -30,6 +30,11 @@ export function LibraryShortcuts() {
                 <Kbd.Content>D</Kbd.Content>
               </Kbd>
             </Shortcut>
+            <Shortcut label="Switch library view">
+              <Kbd>
+                <Kbd.Content>S</Kbd.Content>
+              </Kbd>
+            </Shortcut>
             <Shortcut label="Move through folders or images">
               <span className="shortcut-keys">
                 <Kbd>
