@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import { createGoogleOAuthClient } from "@/server/auth/google-oauth.server"
+import { getGoogleAccessToken } from "@/server/auth/google-oauth.server"
 import { useStillroomSession } from "@/server/auth/session.server"
 
 export const Route = createFileRoute("/api/media/$fileId")({
@@ -20,17 +20,31 @@ export const Route = createFileRoute("/api/media/$fileId")({
           return new Response("Library access is required.", { status: 401 })
         }
 
-        const oauthClient = createGoogleOAuthClient()
-        oauthClient.setCredentials({ refresh_token: refreshToken })
-        const accessToken = await oauthClient.getAccessToken()
+        const credentials = await getGoogleAccessToken({
+          accessToken: session.data.googleAccessToken,
+          accessTokenExpiresAt: session.data.googleAccessTokenExpiresAt,
+          refreshToken,
+        })
 
-        if (!accessToken.token) {
+        if (!credentials) {
           return new Response("Library access expired.", { status: 401 })
+        }
+
+        if (
+          credentials.accessToken !== session.data.googleAccessToken ||
+          credentials.accessTokenExpiresAt !==
+            session.data.googleAccessTokenExpiresAt
+        ) {
+          await session.update({
+            ...session.data,
+            googleAccessToken: credentials.accessToken,
+            googleAccessTokenExpiresAt: credentials.accessTokenExpiresAt,
+          })
         }
 
         const driveResponse = await fetch(
           `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(params.fileId)}?alt=media`,
-          { headers: { Authorization: `Bearer ${accessToken.token}` } }
+          { headers: { Authorization: `Bearer ${credentials.accessToken}` } }
         )
 
         if (!driveResponse.ok || !driveResponse.body) {
@@ -39,16 +53,24 @@ export const Route = createFileRoute("/api/media/$fileId")({
           })
         }
 
-        return new Response(driveResponse.body, {
-          headers: {
-            "Cache-Control": "private, max-age=300",
-            "Content-Type":
-              driveResponse.headers.get("Content-Type") ??
-              "application/octet-stream",
-            Vary: "Cookie, Authorization",
-          },
+        const responseHeaders = new Headers({
+          "Cache-Control": "private, max-age=300, stale-while-revalidate=3600",
+          "Content-Type":
+            driveResponse.headers.get("Content-Type") ??
+            "application/octet-stream",
+          Vary: "Cookie, Authorization",
         })
+        copyHeader(driveResponse.headers, responseHeaders, "Content-Length")
+        copyHeader(driveResponse.headers, responseHeaders, "ETag")
+        copyHeader(driveResponse.headers, responseHeaders, "Last-Modified")
+
+        return new Response(driveResponse.body, { headers: responseHeaders })
       },
     },
   },
 })
+
+function copyHeader(source: Headers, destination: Headers, name: string) {
+  const value = source.get(name)
+  if (value) destination.set(name, value)
+}

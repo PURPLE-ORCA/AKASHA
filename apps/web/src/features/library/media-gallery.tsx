@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -11,6 +11,10 @@ import {
 import { Button, Label, Modal, Typography } from "@heroui/react"
 import { ContextMenu } from "@heroui-pro/react"
 import type { LibraryItem } from "@stillroom/contracts"
+
+const INITIAL_RENDER_COUNT = 48
+const RENDER_BATCH_SIZE = 48
+const PRIORITY_IMAGE_COUNT = 8
 
 type MediaGalleryProps = {
   items: LibraryItem[]
@@ -28,6 +32,30 @@ export function MediaGallery({
     [items]
   )
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
+  const [visibleCount, setVisibleCount] = useState(INITIAL_RENDER_COUNT)
+  const loadMoreRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    setVisibleCount(INITIAL_RENDER_COUNT)
+  }, [displayItems])
+
+  useEffect(() => {
+    const target = loadMoreRef.current
+    if (!target || visibleCount >= displayItems.length) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries[0]?.isIntersecting) return
+        setVisibleCount((count) =>
+          Math.min(displayItems.length, count + RENDER_BATCH_SIZE)
+        )
+      },
+      { rootMargin: "1000px 0px" }
+    )
+
+    observer.observe(target)
+    return () => observer.disconnect()
+  }, [displayItems.length, visibleCount])
 
   if (displayItems.length === 0) {
     return (
@@ -40,16 +68,24 @@ export function MediaGallery({
   return (
     <>
       <div aria-label="Saved images" className="media-grid">
-        {displayItems.map((item, index) => (
+        {displayItems.slice(0, visibleCount).map((item, index) => (
           <MediaCard
             item={item}
             key={item.id}
             onMove={() => onMoveItem(item.id)}
             onOpen={() => setActiveIndex(index)}
             onRemove={() => onRemoveItem(item.id)}
+            priority={index < PRIORITY_IMAGE_COUNT}
           />
         ))}
       </div>
+      {visibleCount < displayItems.length ? (
+        <div
+          aria-hidden="true"
+          className="gallery-sentinel"
+          ref={loadMoreRef}
+        />
+      ) : null}
       <ImageLightbox
         activeIndex={activeIndex}
         items={displayItems}
@@ -64,9 +100,16 @@ type MediaCardProps = {
   onMove: () => void
   onOpen: () => void
   onRemove: () => void
+  priority: boolean
 }
 
-function MediaCard({ item, onMove, onOpen, onRemove }: MediaCardProps) {
+function MediaCard({
+  item,
+  onMove,
+  onOpen,
+  onRemove,
+  priority,
+}: MediaCardProps) {
   return (
     <ContextMenu>
       <ContextMenu.Trigger>
@@ -79,8 +122,9 @@ function MediaCard({ item, onMove, onOpen, onRemove }: MediaCardProps) {
           >
             <img
               alt={item.title}
+              fetchPriority={priority ? "high" : "auto"}
               height={item.height}
-              loading="lazy"
+              loading={priority ? "eager" : "lazy"}
               src={item.thumbnailUrl}
               width={item.width}
             />

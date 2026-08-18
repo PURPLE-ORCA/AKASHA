@@ -70,6 +70,7 @@
 [data-library-tabs-list-container] { width: fit-content; max-width: 100%; }
 .library-content { min-height: calc(100svh - 10rem); }
 .gallery-empty { display: grid; min-height: 28rem; place-items: center; }
+.gallery-sentinel { height: 1px; }
 .media-grid { column-count: 1; column-gap: 1rem; }
 .media-grid > * { break-inside: avoid; }
 .media-unit { margin-block-end: 1rem; }

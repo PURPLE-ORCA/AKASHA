@@ -1,4 +1,5 @@
 import { google } from "googleapis"
+import type { drive_v3 } from "googleapis"
 
 import { createGoogleOAuthClient } from "../auth/google-oauth.server"
 import { buildFolderChildrenQuery } from "./drive-query"
@@ -7,7 +8,7 @@ const FOLDER_MIME_TYPE = "application/vnd.google-apps.folder"
 const ROOT_PROPERTY_KEY = "stillroomRole"
 const ROOT_PROPERTY_VALUE = "root"
 const FILE_FIELDS =
-  "files(id,name,mimeType,parents,description,thumbnailLink,webContentLink,webViewLink,appProperties,imageMediaMetadata,videoMediaMetadata,createdTime)"
+  "nextPageToken,files(id,name,mimeType,parents,description,thumbnailLink,webContentLink,webViewLink,appProperties,imageMediaMetadata,videoMediaMetadata,createdTime)"
 
 export { FOLDER_MIME_TYPE }
 
@@ -48,15 +49,33 @@ export async function listFolderChildren(
   folderId: string
 ) {
   const drive = createDriveClient(refreshToken)
-  const response = await drive.files.list({
-    fields: FILE_FIELDS,
-    orderBy: "folder,name_natural",
-    pageSize: 1000,
-    q: buildFolderChildrenQuery(folderId),
-    spaces: "drive",
-  })
+  return listDriveFiles(drive, buildFolderChildrenQuery(folderId))
+}
 
-  return response.data.files ?? []
+export async function listStillroomFiles(refreshToken: string) {
+  const drive = createDriveClient(refreshToken)
+  return listDriveFiles(drive, "trashed = false")
+}
+
+async function listDriveFiles(drive: drive_v3.Drive, query: string) {
+  const files: drive_v3.Schema$File[] = []
+  let pageToken: string | undefined
+
+  do {
+    const response = await drive.files.list({
+      fields: FILE_FIELDS,
+      orderBy: "folder,name_natural",
+      pageSize: 1000,
+      pageToken,
+      q: query,
+      spaces: "drive",
+    })
+
+    files.push(...(response.data.files ?? []))
+    pageToken = response.data.nextPageToken ?? undefined
+  } while (pageToken)
+
+  return files
 }
 
 export async function createFolder(

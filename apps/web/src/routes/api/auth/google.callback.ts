@@ -35,6 +35,8 @@ export const Route = createFileRoute("/api/auth/google/callback")({
         }
 
         await session.update({
+          googleAccessToken: tokens.access_token ?? undefined,
+          googleAccessTokenExpiresAt: tokens.expiry_date ?? undefined,
           googleRefreshToken: refreshToken,
           oauthState: undefined,
         })

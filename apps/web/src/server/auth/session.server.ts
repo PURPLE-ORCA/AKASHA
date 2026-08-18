@@ -3,6 +3,8 @@ import { useSession } from "@tanstack/react-start/server"
 import { getSessionSecret } from "../env.server"
 
 export type StillroomSessionData = {
+  googleAccessToken?: string
+  googleAccessTokenExpiresAt?: number
   googleRefreshToken?: string
   oauthState?: string
 }

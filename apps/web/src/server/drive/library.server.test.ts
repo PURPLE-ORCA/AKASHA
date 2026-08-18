@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest"
 
-import { mapDriveFileToLibraryItem } from "./library.server"
+import {
+  buildDriveLibrarySnapshot,
+  mapDriveFileToLibraryItem,
+} from "./library.server"
 
 describe("mapDriveFileToLibraryItem", () => {
   it("maps captured Drive metadata to a library item", () => {
@@ -40,5 +43,46 @@ describe("mapDriveFileToLibraryItem", () => {
         "folder-id"
       )
     ).toBeNull()
+  })
+})
+
+describe("buildDriveLibrarySnapshot", () => {
+  it("builds a nested library from a single Drive listing", () => {
+    const snapshot = buildDriveLibrarySnapshot("root", [
+      {
+        id: "nested",
+        mimeType: "application/vnd.google-apps.folder",
+        name: "Nested",
+        parents: ["folder"],
+      },
+      {
+        id: "folder",
+        mimeType: "application/vnd.google-apps.folder",
+        name: "Ideas",
+        parents: ["root"],
+      },
+      {
+        createdTime: "2026-08-15T09:00:00.000Z",
+        description: JSON.stringify({
+          sourceUrl: "https://example.com/reference",
+        }),
+        id: "image",
+        mimeType: "image/jpeg",
+        name: "reference.jpeg",
+        parents: ["nested"],
+      },
+      {
+        id: "unrelated",
+        mimeType: "application/vnd.google-apps.folder",
+        name: "Unrelated",
+        parents: ["outside"],
+      },
+    ])
+
+    expect(snapshot.folders).toEqual([
+      { id: "folder", name: "Ideas", parentId: null },
+      { id: "nested", name: "Nested", parentId: "folder" },
+    ])
+    expect(snapshot.items).toMatchObject([{ folderId: "nested", id: "image" }])
   })
 })

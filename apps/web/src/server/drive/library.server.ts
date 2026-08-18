@@ -9,7 +9,7 @@ import type {
 import {
   ensureStillroomRoot,
   FOLDER_MIME_TYPE,
-  listFolderChildren,
+  listStillroomFiles,
 } from "./drive.server"
 
 export type DriveLibrarySnapshot = {
@@ -27,56 +27,58 @@ export async function loadDriveLibrary(
     throw new Error("Stillroom could not initialize the library root.")
   }
 
-  const folders: LibraryFolder[] = []
-  const items: LibraryItem[] = []
-  await collectFolderContents(refreshToken, root.id, null, folders, items)
-
-  return { folders, items, rootFolderId: root.id }
+  const files = await listStillroomFiles(refreshToken)
+  return buildDriveLibrarySnapshot(root.id, files)
 }
 
-async function collectFolderContents(
-  refreshToken: string,
-  driveFolderId: string,
-  productParentId: string | null,
-  folders: LibraryFolder[],
-  items: LibraryItem[]
-) {
-  const children = await listFolderChildren(refreshToken, driveFolderId)
-  const childFolders = children.filter(
-    (child) => child.mimeType === FOLDER_MIME_TYPE
-  )
+export function buildDriveLibrarySnapshot(
+  rootFolderId: string,
+  files: drive_v3.Schema$File[]
+): DriveLibrarySnapshot {
+  const filesByParent = new Map<string, drive_v3.Schema$File[]>()
 
-  for (const folder of childFolders) {
-    if (!folder.id || !folder.name) {
-      continue
-    }
-
-    const parsedFolder = libraryFolderSchema.parse({
-      id: folder.id,
-      name: folder.name,
-      parentId: productParentId,
-    })
-    folders.push(parsedFolder)
-    await collectFolderContents(
-      refreshToken,
-      folder.id,
-      folder.id,
-      folders,
-      items
-    )
-  }
-
-  for (const file of children) {
-    if (file.mimeType === FOLDER_MIME_TYPE || !file.id) {
-      continue
-    }
-
-    const item = mapDriveFileToLibraryItem(file, driveFolderId)
-
-    if (item) {
-      items.push(item)
+  for (const file of files) {
+    for (const parentId of file.parents ?? []) {
+      const siblings = filesByParent.get(parentId) ?? []
+      siblings.push(file)
+      filesByParent.set(parentId, siblings)
     }
   }
+
+  const folders: LibraryFolder[] = []
+  const items: LibraryItem[] = []
+  const pendingFolders: Array<{
+    driveFolderId: string
+    parentId: string | null
+  }> = [{ driveFolderId: rootFolderId, parentId: null }]
+  const visitedFolderIds = new Set<string>([rootFolderId])
+
+  while (pendingFolders.length > 0) {
+    const current = pendingFolders.shift()
+    if (!current) break
+
+    for (const file of filesByParent.get(current.driveFolderId) ?? []) {
+      if (file.mimeType === FOLDER_MIME_TYPE) {
+        if (!file.id || !file.name || visitedFolderIds.has(file.id)) continue
+
+        folders.push(
+          libraryFolderSchema.parse({
+            id: file.id,
+            name: file.name,
+            parentId: current.parentId,
+          })
+        )
+        visitedFolderIds.add(file.id)
+        pendingFolders.push({ driveFolderId: file.id, parentId: file.id })
+        continue
+      }
+
+      const item = mapDriveFileToLibraryItem(file, current.driveFolderId)
+      if (item) items.push(item)
+    }
+  }
+
+  return { folders, items, rootFolderId }
 }
 
 export function mapDriveFileToLibraryItem(
