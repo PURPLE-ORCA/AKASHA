@@ -1,6 +1,7 @@
 import { useRef } from "react"
 import { FolderSimpleIcon } from "@phosphor-icons/react"
 import { Typography } from "@heroui/react"
+import { Link } from "@tanstack/react-router"
 import type { LibraryFolder } from "@stillroom/contracts"
 
 type FolderGalleryProps = {
@@ -26,12 +27,9 @@ export function FolderGallery({ folders }: FolderGalleryProps) {
   return (
     <nav aria-label="Folders" className="folder-grid">
       {folders.map((folder, index) => {
-        const href = `/?folder=${folder.id}`
-
         return (
-          <a
+          <Link
             className="folder-link"
-            href={href}
             key={folder.id}
             onKeyDown={(event) => {
               if (event.key === "ArrowLeft") {
@@ -44,16 +42,18 @@ export function FolderGallery({ folders }: FolderGalleryProps) {
               }
               if (event.key === " ") {
                 event.preventDefault()
-                window.location.assign(href)
+                event.currentTarget.click()
               }
             }}
             ref={(node) => {
               linkRefs.current[index] = node
             }}
+            search={(previous) => ({ ...previous, folder: folder.id })}
+            to="/"
           >
             <FolderSimpleIcon aria-hidden="true" size={24} weight="fill" />
             <Typography weight="medium">{folder.name}</Typography>
-          </a>
+          </Link>
         )
       })}
     </nav>

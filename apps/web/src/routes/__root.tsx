@@ -1,5 +1,11 @@
-import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router"
+import {
+  HeadContent,
+  Scripts,
+  createRootRoute,
+  useNavigate,
+} from "@tanstack/react-router"
 import { Link, Typography } from "@heroui/react"
+import { RouterProvider } from "react-aria-components"
 
 import appCss from "../styles.css?url"
 
@@ -46,16 +52,20 @@ export const Route = createRootRoute({
 })
 
 function RootDocument({ children }: { children: React.ReactNode }) {
+  const navigate = useNavigate()
+
   return (
     <html lang="en">
       <head>
         <HeadContent />
       </head>
       <body>
-        <a className="skip-link" href="#main-content">
-          Skip to content
-        </a>
-        {children}
+        <RouterProvider navigate={(href) => navigate({ href })}>
+          <a className="skip-link" href="#main-content">
+            Skip to content
+          </a>
+          {children}
+        </RouterProvider>
         <Scripts />
       </body>
     </html>

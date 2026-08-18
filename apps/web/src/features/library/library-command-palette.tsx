@@ -8,6 +8,7 @@ import {
 } from "@phosphor-icons/react"
 import { Typography } from "@heroui/react"
 import { Command } from "@heroui-pro/react"
+import { useNavigate } from "@tanstack/react-router"
 import type { LibraryFolder } from "@stillroom/contracts"
 
 import type { ThemePreference } from "./library-toolbar"
@@ -25,17 +26,22 @@ export function LibraryCommandPalette({
   onOpenChange,
   onThemeChange,
 }: LibraryCommandPaletteProps) {
+  const navigate = useNavigate({ from: "/" })
+
   function runCommand(key: React.Key) {
     const command = String(key)
     onOpenChange(false)
 
     if (command === "folder:root") {
-      window.location.assign("/")
+      void navigate({ search: {}, to: "/" })
       return
     }
 
     if (command.startsWith("folder:")) {
-      window.location.assign(`/?folder=${command.slice("folder:".length)}`)
+      void navigate({
+        search: { folder: command.slice("folder:".length) },
+        to: "/",
+      })
       return
     }
 

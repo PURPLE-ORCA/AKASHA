@@ -7,7 +7,9 @@ import { LibraryPage } from "@/features/library/library-page"
 
 export const Route = createFileRoute("/")({
   component: LibraryRoute,
+  loaderDeps: () => ({}),
   loader: () => getLibrarySnapshot(),
+  staleTime: 30_000,
   validateSearch: z.object({
     connection: z.enum(["connected", "failed"]).optional(),
     folder: z.string().optional(),
