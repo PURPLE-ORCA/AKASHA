@@ -1,9 +1,27 @@
-import { connectAkasha, listFolderOptions, saveCapture } from "@/utils/akasha-api"
+import { AkashaApiError, connectAkasha, listFolderOptions, saveCapture } from "@/utils/akasha-api"
 import { createCaptureDraft } from "@/utils/capture"
 import type { ExtensionRequest, ExtensionResponse, OpenCapturePanelMessage } from "@/utils/messages"
-import { captureDraftStorage } from "@/utils/storage"
+import {
+  type CaptureOutboxJob,
+  createCaptureOutboxJob,
+  prepareDeliveryAttempt,
+  scheduleDeliveryRetry,
+} from "@/utils/outbox"
+import {
+  captureDraftStorage,
+  captureOutboxStorage,
+  folderOptionsCacheStorage,
+  selectedFolderStorage,
+} from "@/utils/storage"
 
 const CAPTURE_MENU_ID = "stillroom-capture-media"
+const OUTBOX_ALARM_NAME = "akasha-capture-outbox"
+const FAILED_NOTIFICATION_PREFIX = "akasha-save-failed:"
+const FOLDER_CACHE_FRESH_MS = 5 * 60 * 1_000
+
+let storageMutation = Promise.resolve()
+let outboxExecution: Promise<void> | null = null
+let folderRefresh: Promise<Awaited<ReturnType<typeof listFolderOptions>>> | null = null
 
 export default defineBackground(() => {
   browser.runtime.onInstalled.addListener(() => {
@@ -29,16 +47,27 @@ export default defineBackground(() => {
       return
     }
 
-    await captureDraftStorage.setValue(draft)
+    await withStorageMutation(() => captureDraftStorage.setValue(draft))
 
     await openCapturePanel(tab?.id)
   })
 
   browser.action.onClicked.addListener((tab) => openCapturePanel(tab.id))
+  browser.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === OUTBOX_ALARM_NAME) void processOutbox()
+  })
+  browser.runtime.onStartup.addListener(() => void processOutbox())
+  browser.notifications.onClicked.addListener((notificationId) => {
+    if (notificationId.startsWith(FAILED_NOTIFICATION_PREFIX)) {
+      void restoreFailedCapture(notificationId.slice(FAILED_NOTIFICATION_PREFIX.length))
+    }
+  })
 
   browser.runtime.onMessage.addListener((message: ExtensionRequest) =>
     handleExtensionRequest(message)
   )
+
+  void processOutbox()
 })
 
 async function openCapturePanel(tabId?: number) {
@@ -60,16 +89,18 @@ async function handleExtensionRequest(
 ): Promise<ExtensionResponse<unknown>> {
   try {
     if (message.type === "akasha:connect") {
-      return { ok: true, value: await connectAkasha() }
+      const folders = await connectAkasha()
+      await cacheFolderOptions(folders)
+      return { ok: true, value: folders }
     }
 
     if (message.type === "akasha:list-folders") {
-      return { ok: true, value: await listFolderOptions() }
+      return { ok: true, value: await getFolderOptions() }
     }
 
     if (message.type === "akasha:save") {
-      await saveCapture(message.draft, message.folderId)
-      return { ok: true, value: undefined }
+      const captureId = await enqueueCapture(message.draft, message.folderId)
+      return { ok: true, value: { captureId } }
     }
 
     return { ok: false, error: "Akasha could not complete that action." }
@@ -79,6 +110,199 @@ async function handleExtensionRequest(
       error: error instanceof Error ? error.message : "Akasha could not complete that action.",
     }
   }
+}
+
+async function enqueueCapture(
+  draft: Parameters<typeof createCaptureOutboxJob>[0],
+  folderId: string
+) {
+  const job = createCaptureOutboxJob(draft, folderId)
+
+  await withStorageMutation(async () => {
+    const jobs = await captureOutboxStorage.getValue()
+    await captureOutboxStorage.setValue([...jobs, job])
+    await captureDraftStorage.removeValue()
+  })
+
+  await scheduleNextOutboxAlarm()
+  queueMicrotask(() => void processOutbox())
+  return job.captureId
+}
+
+function processOutbox() {
+  if (outboxExecution) return outboxExecution
+
+  outboxExecution = drainOutbox().finally(() => {
+    outboxExecution = null
+  })
+  return outboxExecution
+}
+
+async function drainOutbox() {
+  let job = await takeNextReadyJob()
+
+  while (job) {
+    await scheduleNextOutboxAlarm()
+
+    try {
+      await saveCapture(job.draft, job.folderId, job.captureId, job.attempt)
+      await removeOutboxJob(job.captureId)
+      await showCaptureNotification(
+        "Saved to Akasha",
+        `${job.draft.title} is now in your library.`
+      ).catch(() => undefined)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Akasha could not save this item."
+      const retryable = !(error instanceof AkashaApiError) || error.retryable
+
+      if (error instanceof AkashaApiError && (error.status === 401 || error.status === 422)) {
+        await folderOptionsCacheStorage.removeValue()
+      }
+      const updatedJob = retryable
+        ? scheduleDeliveryRetry(job, message)
+        : { ...job, errorMessage: message, status: "failed" as const }
+
+      await replaceOutboxJob(updatedJob)
+
+      if (updatedJob.status === "failed") {
+        await showFailedCaptureNotification(updatedJob).catch(() => undefined)
+      }
+    }
+
+    job = await takeNextReadyJob()
+  }
+
+  await scheduleNextOutboxAlarm()
+}
+
+async function takeNextReadyJob() {
+  return withStorageMutation(async () => {
+    const jobs = await captureOutboxStorage.getValue()
+    const jobIndex = jobs.findIndex(
+      (job) => job.status === "pending" && job.nextAttemptAt <= Date.now()
+    )
+
+    if (jobIndex < 0) return null
+
+    const job = jobs[jobIndex]
+    if (!job) return null
+
+    const preparedJob = prepareDeliveryAttempt(job)
+    const nextJobs = [...jobs]
+    nextJobs[jobIndex] = preparedJob
+    await captureOutboxStorage.setValue(nextJobs)
+    return preparedJob
+  })
+}
+
+async function replaceOutboxJob(updatedJob: CaptureOutboxJob) {
+  await withStorageMutation(async () => {
+    const jobs = await captureOutboxStorage.getValue()
+    await captureOutboxStorage.setValue(
+      jobs.map((job) => (job.captureId === updatedJob.captureId ? updatedJob : job))
+    )
+  })
+}
+
+async function removeOutboxJob(captureId: string) {
+  await withStorageMutation(async () => {
+    const jobs = await captureOutboxStorage.getValue()
+    await captureOutboxStorage.setValue(jobs.filter((job) => job.captureId !== captureId))
+  })
+}
+
+async function scheduleNextOutboxAlarm() {
+  const jobs = await captureOutboxStorage.getValue()
+  const nextAttemptAt = jobs
+    .filter((job) => job.status === "pending")
+    .reduce<number | null>(
+      (earliest, job) =>
+        earliest === null ? job.nextAttemptAt : Math.min(earliest, job.nextAttemptAt),
+      null
+    )
+
+  if (nextAttemptAt === null) {
+    await browser.alarms.clear(OUTBOX_ALARM_NAME)
+    return
+  }
+
+  await browser.alarms.create(OUTBOX_ALARM_NAME, {
+    when: Math.max(Date.now() + 1_000, nextAttemptAt),
+  })
+}
+
+async function restoreFailedCapture(captureId: string) {
+  const restoredJob = await withStorageMutation(async () => {
+    const jobs = await captureOutboxStorage.getValue()
+    const job = jobs.find(
+      (candidate) => candidate.captureId === captureId && candidate.status === "failed"
+    )
+
+    if (!job) return null
+
+    await captureDraftStorage.setValue(job.draft)
+    await selectedFolderStorage.setValue(job.folderId)
+    await captureOutboxStorage.setValue(
+      jobs.filter((candidate) => candidate.captureId !== captureId)
+    )
+    return job
+  })
+
+  if (!restoredJob) return
+
+  await browser.notifications.clear(`${FAILED_NOTIFICATION_PREFIX}${captureId}`)
+  const [activeTab] = await browser.tabs.query({ active: true, currentWindow: true })
+  await openCapturePanel(activeTab?.id)
+}
+
+async function getFolderOptions() {
+  const cached = await folderOptionsCacheStorage.getValue()
+
+  if (cached) {
+    if (Date.now() - cached.cachedAt >= FOLDER_CACHE_FRESH_MS) {
+      void refreshFolderOptions().catch(() => undefined)
+    }
+
+    return cached.folders
+  }
+
+  return refreshFolderOptions()
+}
+
+function refreshFolderOptions() {
+  if (folderRefresh) return folderRefresh
+
+  folderRefresh = listFolderOptions()
+    .then(async (folders) => {
+      await cacheFolderOptions(folders)
+      return folders
+    })
+    .finally(() => {
+      folderRefresh = null
+    })
+  return folderRefresh
+}
+
+async function cacheFolderOptions(folders: Awaited<ReturnType<typeof listFolderOptions>>) {
+  await folderOptionsCacheStorage.setValue({ cachedAt: Date.now(), folders })
+}
+
+function withStorageMutation<T>(operation: () => Promise<T>) {
+  const result = storageMutation.then(operation, operation)
+  storageMutation = result.then(
+    () => undefined,
+    () => undefined
+  )
+  return result
+}
+
+async function showFailedCaptureNotification(job: CaptureOutboxJob) {
+  await browser.notifications.create(`${FAILED_NOTIFICATION_PREFIX}${job.captureId}`, {
+    iconUrl: browser.runtime.getURL("/icon/128.png"),
+    message: `${job.errorMessage ?? "Akasha could not save this item."} Click to try again.`,
+    title: "Save needs attention",
+    type: "basic",
+  })
 }
 
 async function showCaptureNotification(title: string, message: string) {

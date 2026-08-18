@@ -33,7 +33,7 @@ export function getFolderOptions() {
 }
 
 export function saveLibraryCapture(draft: CaptureDraft, folderId: string) {
-  return callExtension<void>({
+  return callExtension<{ captureId: string }>({
     type: "akasha:save",
     draft,
     folderId,

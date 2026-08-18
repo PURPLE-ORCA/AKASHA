@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest"
 
-import { createAkashaAuthorizationUrl, parseAkashaAuthorizationResponse } from "./akasha-api"
+import {
+  AkashaApiError,
+  createAkashaAuthorizationUrl,
+  parseAkashaAuthorizationResponse,
+} from "./akasha-api"
 
 describe("Akasha extension authorization", () => {
   it("starts authorization through the Akasha backend", () => {
@@ -30,5 +34,13 @@ describe("Akasha extension authorization", () => {
         "https://extension-id.chromiumapp.org/oauth2#error=authorization_failed"
       )
     ).toThrow("not completed")
+  })
+})
+
+describe("Akasha API errors", () => {
+  it("retries only transient response classes", () => {
+    expect(new AkashaApiError("Unavailable", 502).retryable).toBe(true)
+    expect(new AkashaApiError("Too many requests", 429).retryable).toBe(true)
+    expect(new AkashaApiError("Invalid capture", 422).retryable).toBe(false)
   })
 })

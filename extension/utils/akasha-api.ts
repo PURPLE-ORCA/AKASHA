@@ -31,9 +31,14 @@ export async function listFolderOptions() {
   return body.folders
 }
 
-export async function saveCapture(draft: CaptureDraft, folderId: string) {
+export async function saveCapture(
+  draft: CaptureDraft,
+  folderId: string,
+  captureId: string,
+  attempt: number
+) {
   await authenticatedRequest("/api/extension/captures", {
-    body: JSON.stringify({ ...draft, folderId }),
+    body: JSON.stringify({ ...draft, attempt, captureId, folderId }),
     headers: { "Content-Type": "application/json" },
     method: "POST",
   })
@@ -71,20 +76,39 @@ async function authenticatedRequest(path: string, init?: RequestInit) {
       ...init?.headers,
     },
   })
+  const rotatedCredential = response.headers.get("X-Akasha-Credential")
+
+  if (rotatedCredential) {
+    await browser.storage.local.set({ [AUTH_STORAGE_KEY]: rotatedCredential })
+  }
 
   if (response.status === 401) {
     await browser.storage.local.remove(AUTH_STORAGE_KEY)
-    throw new Error("Connect Akasha to continue.")
+    throw new AkashaApiError("Connect Akasha to continue.", 401)
   }
 
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as {
       error?: string
     } | null
-    throw new Error(body?.error ?? "Akasha could not reach your library.")
+    throw new AkashaApiError(body?.error ?? "Akasha could not reach your library.", response.status)
   }
 
   return response
+}
+
+export class AkashaApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number
+  ) {
+    super(message)
+    this.name = "AkashaApiError"
+  }
+
+  get retryable() {
+    return this.status === 408 || this.status === 429 || this.status >= 500
+  }
 }
 
 async function readCredential() {

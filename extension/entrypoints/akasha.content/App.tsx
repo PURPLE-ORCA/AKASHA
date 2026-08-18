@@ -1,18 +1,11 @@
 import type { CaptureDraft } from "@akasha/contracts"
-import {
-  ArrowClockwiseIcon,
-  CheckCircleIcon,
-  FolderIcon,
-  ImageIcon,
-  PlayIcon,
-  XIcon,
-} from "@phosphor-icons/react"
+import { ArrowClockwiseIcon, FolderIcon, ImageIcon, PlayIcon, XIcon } from "@phosphor-icons/react"
 import { useCallback, useEffect, useState } from "react"
 import type { FolderOption } from "@/utils/akasha-api"
 import { connectLibrary, getFolderOptions, saveLibraryCapture } from "@/utils/messages"
 import { captureDraftStorage, selectedFolderStorage } from "@/utils/storage"
 
-type SaveStatus = "idle" | "saving" | "saved"
+type SaveStatus = "idle" | "saving"
 
 export default function App({ onClose }: { onClose: () => void }) {
   const [draft, setDraft] = useState<CaptureDraft | null>(null)
@@ -94,9 +87,7 @@ export default function App({ onClose }: { onClose: () => void }) {
 
     try {
       await saveLibraryCapture(draft, selectedFolderId)
-      await captureDraftStorage.removeValue()
-      setDraft(null)
-      setSaveStatus("saved")
+      onClose()
     } catch (error) {
       setSaveStatus("idle")
       setErrorMessage(error instanceof Error ? error.message : "Akasha could not save this item.")
@@ -142,11 +133,6 @@ export default function App({ onClose }: { onClose: () => void }) {
               <button className="primary-button" onClick={handleConnect} type="button">
                 Connect Akasha
               </button>
-            </section>
-          ) : saveStatus === "saved" ? (
-            <section aria-live="polite" className="saved-state">
-              <CheckCircleIcon aria-hidden="true" weight="fill" />
-              <h1>Saved to Akasha</h1>
             </section>
           ) : draft ? (
             <>

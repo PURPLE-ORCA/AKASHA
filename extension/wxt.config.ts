@@ -10,7 +10,7 @@ export default defineConfig({
     description: "Capture visual inspiration into your Akasha library.",
     key: extensionKey,
     action: {},
-    permissions: ["contextMenus", "identity", "notifications", "storage"],
+    permissions: ["alarms", "contextMenus", "identity", "notifications", "storage"],
     host_permissions: ["<all_urls>"],
   },
 })
