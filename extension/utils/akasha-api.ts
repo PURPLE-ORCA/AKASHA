@@ -37,78 +37,12 @@ export async function saveCapture(
   captureId: string,
   attempt: number
 ) {
-  if (draft.kind === "video") {
-    await saveVideoCapture(draft, folderId, captureId, attempt)
-    return
-  }
+  if (draft.kind !== "image")
+    throw new AkashaApiError("Video capture is currently unavailable.", 422)
 
   await authenticatedRequest("/api/extension/captures", {
     body: JSON.stringify({ ...draft, attempt, captureId, folderId }),
     headers: { "Content-Type": "application/json" },
-    method: "POST",
-  })
-}
-
-async function saveVideoCapture(
-  draft: CaptureDraft,
-  folderId: string,
-  captureId: string,
-  attempt: number
-) {
-  if (
-    draft.storageMode !== "binary" ||
-    !["http:", "https:"].includes(new URL(draft.sourceUrl).protocol)
-  ) {
-    throw new AkashaApiError("This site does not expose a downloadable video.", 422)
-  }
-
-  const captureBody = JSON.stringify({ ...draft, attempt, captureId, folderId })
-
-  try {
-    await authenticatedRequest("/api/extension/captures", {
-      body: captureBody,
-      headers: { "Content-Type": "application/json" },
-      method: "POST",
-    })
-    return
-  } catch (error) {
-    if (!(error instanceof AkashaApiError) || error.status !== 422) throw error
-  }
-
-  const sourceResponse = await fetch(draft.sourceUrl, {
-    credentials: "omit",
-    signal: AbortSignal.timeout(30_000),
-  })
-  if (!sourceResponse.ok) {
-    throw new AkashaApiError("The source video could not be downloaded.", sourceResponse.status)
-  }
-
-  const contentLength = Number(sourceResponse.headers.get("Content-Length"))
-  if (Number.isFinite(contentLength) && contentLength > 50 * 1024 * 1024) {
-    throw new AkashaApiError("This video is too large to save.", 422)
-  }
-
-  const media = await sourceResponse.blob()
-  if (media.size === 0 || media.size > 50 * 1024 * 1024) {
-    throw new AkashaApiError("This video is empty or too large to save.", 422)
-  }
-
-  const sourceMimeType = sourceResponse.headers.get("Content-Type")?.split(";")[0]?.trim()
-  const mimeType = ["video/mp4", "video/webm"].includes(sourceMimeType ?? "")
-    ? sourceMimeType
-    : new URL(draft.sourceUrl).pathname.toLowerCase().endsWith(".webm")
-      ? "video/webm"
-      : "video/mp4"
-  const form = new FormData()
-  form.set("capture", captureBody)
-  form.set(
-    "media",
-    new Blob([media], { type: mimeType }),
-    `capture.${mimeType === "video/webm" ? "webm" : "mp4"}`
-  )
-
-  await authenticatedRequest("/api/extension/captures", {
-    body: form,
     method: "POST",
   })
 }

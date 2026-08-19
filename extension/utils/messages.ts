@@ -5,10 +5,6 @@ export type ExtensionRequest =
   | { type: "akasha:connect" }
   | { type: "akasha:list-folders" }
   | {
-      type: "akasha:capture-video"
-      descriptor: MediaDescriptor
-    }
-  | {
       type: "akasha:save"
       draft: CaptureDraft
       folderId: string
@@ -17,18 +13,6 @@ export type ExtensionRequest =
 export type ExtensionResponse<T> = { ok: true; value: T } | { ok: false; error: string }
 
 export type OpenCapturePanelMessage = { type: "akasha:open-capture" }
-export type GetMediaDescriptorMessage = { type: "akasha:get-media-descriptor" }
-export type MediaDescriptor = {
-  durationSeconds?: number
-  height?: number
-  mediaType: "video"
-  mimeType?: string
-  pageUrl?: string
-  posterUrl?: string
-  srcUrl: string
-  visibleArea?: number
-  width?: number
-}
 
 export async function callExtension<T>(request: ExtensionRequest) {
   const response = (await browser.runtime.sendMessage(request)) as ExtensionResponse<T>

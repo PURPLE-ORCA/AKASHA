@@ -1,12 +1,6 @@
 import { AkashaApiError, connectAkasha, listFolderOptions, saveCapture } from "@/utils/akasha-api"
 import { createCaptureDraft } from "@/utils/capture"
-import type {
-  ExtensionRequest,
-  ExtensionResponse,
-  GetMediaDescriptorMessage,
-  MediaDescriptor,
-  OpenCapturePanelMessage,
-} from "@/utils/messages"
+import type { ExtensionRequest, ExtensionResponse, OpenCapturePanelMessage } from "@/utils/messages"
 import {
   type CaptureOutboxJob,
   createCaptureOutboxJob,
@@ -24,7 +18,6 @@ const CAPTURE_MENU_ID = "stillroom-capture-media"
 const OUTBOX_ALARM_NAME = "akasha-capture-outbox"
 const FAILED_NOTIFICATION_PREFIX = "akasha-save-failed:"
 const FOLDER_CACHE_FRESH_MS = 5 * 60 * 1_000
-const MEDIA_OBSERVER_FILE = "content-scripts/media-observer.js" as ScriptPublicPath
 const CAPTURE_PANEL_FILE = "content-scripts/akasha.js" as ScriptPublicPath
 
 let storageMutation = Promise.resolve()
@@ -32,29 +25,17 @@ let outboxExecution: Promise<void> | null = null
 let folderRefresh: Promise<Awaited<ReturnType<typeof listFolderOptions>>> | null = null
 
 export default defineBackground(() => {
-  browser.runtime.onInstalled.addListener(() => {
-    browser.contextMenus.create({
-      contexts: ["image", "video"],
-      id: CAPTURE_MENU_ID,
-      title: "Save to Akasha",
-    })
-  })
-
   browser.contextMenus.onClicked.addListener(async (info, tab) => {
     if (info.menuItemId !== CAPTURE_MENU_ID) {
       return
     }
 
-    // Sites such as X put an image or transparent control layer over the video.
-    // Chrome then reports the context-menu target as an image even though the
-    // user is saving the underlying video, so always ask the page observer.
-    const descriptor = await getMediaDescriptor(tab?.id, info.frameId)
-    const draft = createCaptureDraft(descriptor ? { ...info, ...descriptor } : info, tab?.title)
+    const draft = createCaptureDraft(info, tab?.title)
 
     if (!draft) {
       await showCaptureNotification(
-        "Could not capture this item",
-        "Open the original image or video and try again."
+        "Could not capture this image",
+        "Open the original image and try again."
       )
       return
     }
@@ -64,52 +45,41 @@ export default defineBackground(() => {
     await openCapturePanel(tab?.id)
   })
 
-  browser.action.onClicked.addListener((tab) => {
-    void captureVisibleVideo(tab).catch(() =>
-      showCaptureNotification("Could not capture this video", "Open the video post and try again.")
-    )
+  // Video capture is postponed. Keep the toolbar useful without presenting a
+  // capture path that the product cannot complete reliably.
+  browser.action.onClicked.addListener(() => {
+    void showCaptureNotification("Save an image", "Right-click an image and choose Save to Akasha.")
   })
   browser.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === OUTBOX_ALARM_NAME) void processOutbox()
   })
-  browser.runtime.onStartup.addListener(() => {
-    void processOutbox()
-    void installMediaObserversInOpenTabs()
-  })
+  browser.runtime.onStartup.addListener(() => void processOutbox())
   browser.notifications.onClicked.addListener((notificationId) => {
     if (notificationId.startsWith(FAILED_NOTIFICATION_PREFIX)) {
       void restoreFailedCapture(notificationId.slice(FAILED_NOTIFICATION_PREFIX.length))
     }
   })
 
-  browser.runtime.onMessage.addListener((message: ExtensionRequest, sender) =>
-    handleExtensionRequest(message, sender)
+  browser.runtime.onMessage.addListener((message: ExtensionRequest) =>
+    handleExtensionRequest(message)
   )
 
   void processOutbox()
-  void installMediaObserversInOpenTabs()
+  void ensureCaptureMenu()
 })
 
-async function getMediaDescriptor(tabId?: number, frameId?: number) {
-  if (!tabId) return null
-
-  const message: GetMediaDescriptorMessage = {
-    type: "akasha:get-media-descriptor",
-  }
-  const options = frameId === undefined ? undefined : { frameId }
-
+async function ensureCaptureMenu() {
   try {
-    return (await browser.tabs.sendMessage(tabId, message, options)) as MediaDescriptor | null
+    await browser.contextMenus.update(CAPTURE_MENU_ID, {
+      contexts: ["image"],
+      title: "Save to Akasha",
+    })
   } catch {
-    try {
-      await browser.scripting.executeScript({
-        files: [MEDIA_OBSERVER_FILE],
-        target: frameId === undefined ? { tabId } : { frameIds: [frameId], tabId },
-      })
-      return (await browser.tabs.sendMessage(tabId, message, options)) as MediaDescriptor | null
-    } catch {
-      return null
-    }
+    await browser.contextMenus.create({
+      contexts: ["image"],
+      id: CAPTURE_MENU_ID,
+      title: "Save to Akasha",
+    })
   }
 }
 
@@ -138,80 +108,6 @@ async function openCapturePanel(tabId?: number) {
   }
 }
 
-async function captureVisibleVideo(tab: Browser.tabs.Tab) {
-  const descriptor = await getLargestVisibleVideoDescriptor(tab.id)
-
-  if (descriptor && tab.url) {
-    await storeVideoDraftAndOpen(descriptor, tab)
-    return
-  }
-
-  await showCaptureNotification("No video found", "Play the video, then try again.")
-}
-
-async function getLargestVisibleVideoDescriptor(tabId?: number) {
-  if (!tabId) return null
-
-  try {
-    const injectedFrames = await browser.scripting.executeScript({
-      files: [MEDIA_OBSERVER_FILE],
-      target: { allFrames: true, tabId },
-    })
-    const frameIds = [...new Set(injectedFrames.map(({ frameId }) => frameId))]
-    const descriptors = await Promise.all(
-      frameIds.map((frameId) => getMediaDescriptor(tabId, frameId))
-    )
-
-    return (
-      descriptors
-        .filter((descriptor): descriptor is MediaDescriptor => descriptor !== null)
-        .sort(
-          (left, right) =>
-            (right.visibleArea ?? (right.width ?? 0) * (right.height ?? 0)) -
-            (left.visibleArea ?? (left.width ?? 0) * (left.height ?? 0))
-        )[0] ?? null
-    )
-  } catch {
-    return getMediaDescriptor(tabId, 0)
-  }
-}
-
-async function installMediaObserversInOpenTabs() {
-  const tabs = await browser.tabs.query({})
-  await Promise.allSettled(
-    tabs.flatMap(({ id: tabId }) =>
-      tabId
-        ? [
-            browser.scripting.executeScript({
-              files: [MEDIA_OBSERVER_FILE],
-              target: { allFrames: true, tabId },
-            }),
-          ]
-        : []
-    )
-  )
-}
-
-async function storeVideoDraftAndOpen(
-  descriptor: MediaDescriptor,
-  tab: Pick<Browser.tabs.Tab, "id" | "title" | "url">
-) {
-  if (!tab.url) throw new Error("Akasha could not identify this page.")
-
-  const draft = createCaptureDraft(
-    {
-      pageUrl: descriptor.pageUrl ?? tab.url,
-      ...descriptor,
-    },
-    tab.title
-  )
-
-  if (!draft) throw new Error("Akasha could not capture this video.")
-
-  await withStorageMutation(() => captureDraftStorage.setValue(draft))
-  await openCapturePanel(tab.id)
-}
-
 async function sendOpenCaptureMessage(
   tabId: number,
   message: OpenCapturePanelMessage,
@@ -236,8 +132,7 @@ async function sendOpenCaptureMessage(
 }
 
 async function handleExtensionRequest(
-  message: ExtensionRequest,
-  sender?: Browser.runtime.MessageSender
+  message: ExtensionRequest
 ): Promise<ExtensionResponse<unknown>> {
   try {
     if (message.type === "akasha:connect") {
@@ -250,12 +145,10 @@ async function handleExtensionRequest(
       return { ok: true, value: await getFolderOptions() }
     }
 
-    if (message.type === "akasha:capture-video") {
-      await storeVideoDraftAndOpen(message.descriptor, sender?.tab ?? {})
-      return { ok: true, value: null }
-    }
-
     if (message.type === "akasha:save") {
+      if (message.draft.kind !== "image") {
+        return { ok: false, error: "Video capture is currently unavailable." }
+      }
       const captureId = await enqueueCapture(message.draft, message.folderId)
       return { ok: true, value: { captureId } }
     }
@@ -336,7 +229,8 @@ async function takeNextReadyJob() {
   return withStorageMutation(async () => {
     const jobs = await captureOutboxStorage.getValue()
     const jobIndex = jobs.findIndex(
-      (job) => job.status === "pending" && job.nextAttemptAt <= Date.now()
+      (job) =>
+        job.draft.kind === "image" && job.status === "pending" && job.nextAttemptAt <= Date.now()
     )
 
     if (jobIndex < 0) return null
@@ -371,7 +265,7 @@ async function removeOutboxJob(captureId: string) {
 async function scheduleNextOutboxAlarm() {
   const jobs = await captureOutboxStorage.getValue()
   const nextAttemptAt = jobs
-    .filter((job) => job.status === "pending")
+    .filter((job) => job.draft.kind === "image" && job.status === "pending")
     .reduce<number | null>(
       (earliest, job) =>
         earliest === null ? job.nextAttemptAt : Math.min(earliest, job.nextAttemptAt),
@@ -392,7 +286,10 @@ async function restoreFailedCapture(captureId: string) {
   const restoredJob = await withStorageMutation(async () => {
     const jobs = await captureOutboxStorage.getValue()
     const job = jobs.find(
-      (candidate) => candidate.captureId === captureId && candidate.status === "failed"
+      (candidate) =>
+        candidate.draft.kind === "image" &&
+        candidate.captureId === captureId &&
+        candidate.status === "failed"
     )
 
     if (!job) return null

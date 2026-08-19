@@ -1,3 +1,7 @@
+// POSTPONED: video capture is excluded from the extension build.
+// Restore this file to entrypoints/media-observer.content.ts only after a
+// provider-backed acquisition design replaces page scraping.
+
 import {
   findLargestVisibleMedia,
   findSmallestMediaAtPoint,

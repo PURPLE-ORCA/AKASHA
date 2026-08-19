@@ -1,5 +1,5 @@
 import type { CaptureDraft } from "@akasha/contracts"
-import { ArrowClockwiseIcon, FolderIcon, ImageIcon, PlayIcon, XIcon } from "@phosphor-icons/react"
+import { ArrowClockwiseIcon, FolderIcon, ImageIcon, XIcon } from "@phosphor-icons/react"
 import { useCallback, useEffect, useState } from "react"
 import type { FolderOption } from "@/utils/akasha-api"
 import { connectLibrary, getFolderOptions, saveLibraryCapture } from "@/utils/messages"
@@ -34,7 +34,7 @@ export default function App({ onClose }: { onClose: () => void }) {
         captureDraftStorage.getValue(),
         selectedFolderStorage.getValue(),
       ])
-      setDraft(storedDraft)
+      setDraft(storedDraft?.kind === "image" ? storedDraft : null)
 
       try {
         const availableFolders = await withTimeout(getFolderOptions(), 3_000)
@@ -49,7 +49,7 @@ export default function App({ onClose }: { onClose: () => void }) {
 
     void initialize()
     return captureDraftStorage.watch((nextDraft) => {
-      setDraft(nextDraft)
+      setDraft(nextDraft?.kind === "image" ? nextDraft : null)
       setSaveStatus("idle")
       setErrorMessage(null)
     })
@@ -128,7 +128,7 @@ export default function App({ onClose }: { onClose: () => void }) {
             <section className="connection-state">
               <div>
                 <h1>Connect Akasha</h1>
-                <p>Save images and videos to your library.</p>
+                <p>Save images to your library.</p>
               </div>
               <button className="primary-button" onClick={handleConnect} type="button">
                 Connect Akasha
@@ -169,7 +169,7 @@ export default function App({ onClose }: { onClose: () => void }) {
           ) : (
             <section className="empty-state">
               <ImageIcon aria-hidden="true" />
-              <p>Right-click an image or video to save it.</p>
+              <p>Right-click an image to save it.</p>
             </section>
           )}
 
@@ -213,7 +213,7 @@ function CapturePreview({ draft }: { draft: CaptureDraft }) {
         {draft.thumbnailUrl ? (
           <img alt="" src={draft.thumbnailUrl} />
         ) : (
-          <PlayIcon aria-hidden="true" weight="fill" />
+          <ImageIcon aria-hidden="true" />
         )}
       </div>
       <div className="preview-copy">

@@ -7,11 +7,7 @@ import {
   setExtensionCredentialHeader,
 } from "@/server/auth/extension-auth.server"
 import type { GoogleTokenCredentials } from "@/server/auth/google-oauth.server"
-import {
-  CaptureSourceError,
-  saveCapture,
-  saveUploadedVideoCapture,
-} from "@/server/drive/drive.server"
+import { CaptureSourceError, saveCapture } from "@/server/drive/drive.server"
 
 export const Route = createFileRoute("/api/extension/captures")({
   server: {
@@ -52,25 +48,20 @@ export const Route = createFileRoute("/api/extension/captures")({
           )
         }
 
+        if (captureResult.data.kind !== "image" || requestInput?.media) {
+          return Response.json(
+            { error: "Video capture is currently unavailable." },
+            { headers, status: 422 }
+          )
+        }
+
         try {
           const capture = captureResult.data
           const options = {
             attempt: capture.attempt,
             captureId: capture.captureId,
           }
-          const result = requestInput?.media
-            ? await saveUploadedVideoCapture(
-                credentials,
-                capture,
-                capture.folderId,
-                {
-                  byteSize: requestInput.media.size,
-                  mimeType: requestInput.media.type,
-                  stream: requestInput.media.stream(),
-                },
-                options
-              )
-            : await saveCapture(credentials, capture, capture.folderId, options)
+          const result = await saveCapture(credentials, capture, capture.folderId, options)
           headers.set(
             "Server-Timing",
             createCaptureServerTiming(authenticationMs, result.timings)

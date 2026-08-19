@@ -24,39 +24,16 @@ describe("createCaptureDraft", () => {
     expect(createCaptureDraft({ pageUrl: "https://example.com" }, "Missing media")).toBeNull()
   })
 
-  it("captures a direct video with playback metadata", () => {
+  it("rejects video captures while the capability is postponed", () => {
     expect(
       createCaptureDraft(
         {
-          durationSeconds: 8.5,
-          height: 720,
           mediaType: "video",
           pageUrl: "https://example.com/showcase",
-          posterUrl: "https://cdn.example.com/poster.jpg",
           srcUrl: "https://cdn.example.com/micro-interaction.mp4",
-          width: 1280,
         },
         "Micro interaction"
       )
-    ).toMatchObject({
-      durationSeconds: 8.5,
-      kind: "video",
-      storageMode: "binary",
-      thumbnailUrl: "https://cdn.example.com/poster.jpg",
-    })
-  })
-
-  it("keeps manifests and browser-local media as references", () => {
-    const base = {
-      mediaType: "video",
-      pageUrl: "https://example.com/showcase",
-    }
-
-    expect(
-      createCaptureDraft({ ...base, srcUrl: "https://cdn.example.com/stream.m3u8" }, "HLS")
-    ).toMatchObject({ storageMode: "reference" })
-    expect(
-      createCaptureDraft({ ...base, srcUrl: "blob:https://example.com/video" }, "Blob")
-    ).toMatchObject({ storageMode: "reference" })
+    ).toBeNull()
   })
 })
