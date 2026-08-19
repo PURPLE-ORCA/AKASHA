@@ -4,6 +4,7 @@ import {
   extractEmbeddedVideoUrls,
   inferVideoMimeType,
   resolveDownloadableVideoUrl,
+  resolveXStatusUrl,
 } from "./video-source"
 
 describe("resolveDownloadableVideoUrl", () => {
@@ -28,12 +29,56 @@ describe("resolveDownloadableVideoUrl", () => {
     ).toBe("https://cdn.example.com/clip.webm")
   })
 
+  it("prefers the embedded X post video over X interface animations", () => {
+    expect(
+      resolveDownloadableVideoUrl({
+        currentSrc: "blob:https://x.com/player",
+        embeddedUrls: [
+          "https://video.twimg.com/amplify_video/123/vid/avc1/1152x720/post.mp4?tag=29",
+        ],
+        performanceUrls: ["https://pbs.twimg.com/static/money/x-card-animation-v4.mp4"],
+      })
+    ).toBe("https://video.twimg.com/amplify_video/123/vid/avc1/1152x720/post.mp4?tag=29")
+  })
+
   it("does not classify manifests or blob URLs as downloadable files", () => {
     expect(
       resolveDownloadableVideoUrl({
         currentSrc: "blob:https://x.com/player",
         performanceUrls: ["https://video.twimg.com/clip/master.m3u8"],
       })
+    ).toBeUndefined()
+  })
+
+  it("rejects X interface animations as capture media", () => {
+    expect(
+      resolveDownloadableVideoUrl({
+        performanceUrls: [
+          "https://abs.twimg.com/videos/grok-4-key-visual.mp4",
+          "https://pbs.twimg.com/static/money/x-card-animation-v4.mp4",
+        ],
+      })
+    ).toBeUndefined()
+  })
+})
+
+describe("resolveXStatusUrl", () => {
+  it("selects the tweet URL and ignores analytics or media-detail links", () => {
+    expect(
+      resolveXStatusUrl(
+        [
+          "/designer/status/1234567890/analytics",
+          "/designer/status/1234567890/photo/1",
+          "/designer/status/1234567890",
+        ],
+        "https://x.com/home"
+      )
+    ).toBe("https://x.com/designer/status/1234567890")
+  })
+
+  it("does not accept status-shaped links from another site", () => {
+    expect(
+      resolveXStatusUrl(["https://example.com/designer/status/1234567890"], "https://x.com/home")
     ).toBeUndefined()
   })
 })

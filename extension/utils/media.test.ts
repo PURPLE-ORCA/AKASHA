@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest"
 
-import { findLargestVisibleMedia, findSmallestMediaAtPoint, getMediaActionPosition } from "./media"
+import {
+  findLargestVisibleMedia,
+  findSmallestMediaAtPoint,
+  getMediaActionPosition,
+  getVisibleArea,
+} from "./media"
 
 function media(left: number, top: number, width: number, height: number) {
   return {
@@ -44,6 +49,14 @@ describe("findLargestVisibleMedia", () => {
 
   it("ignores videos outside the viewport", () => {
     expect(findLargestVisibleMedia([media(2_000, 0, 640, 360)], 1_200, 800)).toBeUndefined()
+  })
+})
+
+describe("getVisibleArea", () => {
+  it("measures only the portion inside the viewport", () => {
+    expect(getVisibleArea(media(-100, 50, 400, 300).getBoundingClientRect(), 1_200, 800)).toBe(
+      90_000
+    )
   })
 })
 

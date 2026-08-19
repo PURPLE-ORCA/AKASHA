@@ -50,16 +50,19 @@ export function findLargestVisibleMedia<T extends RectSource>(
 ) {
   return media
     .map((item) => {
-      const rect = item.getBoundingClientRect()
-      const visibleWidth = Math.max(0, Math.min(rect.right, viewportWidth) - Math.max(rect.left, 0))
-      const visibleHeight = Math.max(
-        0,
-        Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0)
-      )
-      return { item, visibleArea: visibleWidth * visibleHeight }
+      return {
+        item,
+        visibleArea: getVisibleArea(item.getBoundingClientRect(), viewportWidth, viewportHeight),
+      }
     })
     .filter(({ visibleArea }) => visibleArea > 0)
     .sort((left, right) => right.visibleArea - left.visibleArea)[0]?.item
+}
+
+export function getVisibleArea(rect: Rect, viewportWidth: number, viewportHeight: number) {
+  const visibleWidth = Math.max(0, Math.min(rect.right, viewportWidth) - Math.max(rect.left, 0))
+  const visibleHeight = Math.max(0, Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0))
+  return visibleWidth * visibleHeight
 }
 
 export function getMediaActionPosition(rect: Rect, options: MediaActionPositionOptions) {

@@ -2,6 +2,7 @@ import {
   findLargestVisibleMedia,
   findSmallestMediaAtPoint,
   getMediaActionPosition,
+  getVisibleArea,
 } from "@/utils/media"
 import type {
   ExtensionRequest,
@@ -13,13 +14,21 @@ import {
   extractEmbeddedVideoUrls,
   inferVideoMimeType,
   resolveDownloadableVideoUrl,
+  resolveXStatusUrl,
 } from "@/utils/video-source"
 
 export default defineContentScript({
   allFrames: true,
   matches: ["<all_urls>"],
   main(ctx) {
+    const observerScope = globalThis as typeof globalThis & {
+      __akashaMediaObserverInstalled?: boolean
+    }
+    if (observerScope.__akashaMediaObserverInstalled) return
+    observerScope.__akashaMediaObserverInstalled = true
+
     let lastVideo: MediaDescriptor | null = null
+    let lastVideoElement: HTMLVideoElement | null = null
     let activeVideo: HTMLVideoElement | null = null
     let resetLabelTimer: ReturnType<typeof setTimeout> | null = null
     const { button, host } = createVideoAction()
@@ -32,10 +41,12 @@ export default defineContentScript({
 
       if (!video) {
         lastVideo = null
+        lastVideoElement = null
         return
       }
 
       lastVideo = describeVideo(video)
+      lastVideoElement = video
     }
 
     const provideDescriptor = (message: GetMediaDescriptorMessage) => {
@@ -45,8 +56,9 @@ export default defineContentScript({
         window.innerWidth,
         window.innerHeight
       )
-      const descriptor = lastVideo ?? (visibleVideo ? describeVideo(visibleVideo) : null)
-      return resolvePageVideoSource(descriptor).then((resolvedDescriptor) => {
+      const targetVideo = lastVideoElement ?? visibleVideo
+      const descriptor = lastVideo ?? (targetVideo ? describeVideo(targetVideo) : null)
+      return resolvePageVideoSource(descriptor, targetVideo).then((resolvedDescriptor) => {
         lastVideo = resolvedDescriptor
         return resolvedDescriptor
       })
@@ -101,7 +113,7 @@ export default defineContentScript({
       setActionLabel(button, "Opening…")
 
       try {
-        const descriptor = await resolvePageVideoSource(describeVideo(activeVideo))
+        const descriptor = await resolvePageVideoSource(describeVideo(activeVideo), activeVideo)
         if (!descriptor) throw new Error("Video unavailable")
 
         const request: ExtensionRequest = {
@@ -137,6 +149,7 @@ export default defineContentScript({
       browser.runtime.onMessage.removeListener(provideDescriptor)
       if (resetLabelTimer) clearTimeout(resetLabelTimer)
       host.remove()
+      delete observerScope.__akashaMediaObserverInstalled
     })
   },
 })
@@ -147,7 +160,14 @@ function createVideoAction() {
   const shadow = host.attachShadow({ mode: "open" })
   const style = document.createElement("style")
   style.textContent = `
-    :host { all: initial; }
+    :host {
+      all: initial;
+      display: block;
+      inset: 0;
+      pointer-events: none;
+      position: fixed;
+      z-index: 2147483647;
+    }
     button {
       align-items: center;
       backdrop-filter: blur(14px);
@@ -201,6 +221,7 @@ function describeVideo(video: HTMLVideoElement): MediaDescriptor | null {
   const sourceUrls = Array.from(video.querySelectorAll("source"))
     .map((source) => source.src)
     .filter(Boolean)
+  if (isDedicatedXStatusPage() || !isXPage()) sourceUrls.push(...collectMetadataVideoUrls())
   const downloadableUrl = resolveDownloadableVideoUrl({
     currentSrc,
     embeddedUrls: collectEmbeddedVideoUrls(),
@@ -222,8 +243,23 @@ function describeVideo(video: HTMLVideoElement): MediaDescriptor | null {
       selectedSource?.type || (downloadableUrl ? inferVideoMimeType(downloadableUrl) : undefined),
     posterUrl: video.poster || undefined,
     srcUrl,
+    visibleArea: getVisibleArea(
+      video.getBoundingClientRect(),
+      window.innerWidth,
+      window.innerHeight
+    ),
     width: video.videoWidth || undefined,
   }
+}
+
+function collectMetadataVideoUrls() {
+  return Array.from(
+    document.querySelectorAll<HTMLMetaElement | HTMLLinkElement>(
+      'meta[itemprop="contentUrl"], meta[property="og:video"], meta[property="og:video:url"], link[rel="preload"][as="video"]'
+    )
+  )
+    .map((element) => (element instanceof HTMLMetaElement ? element.content : element.href))
+    .filter(Boolean)
 }
 
 function collectEmbeddedVideoUrls() {
@@ -244,7 +280,24 @@ function collectEmbeddedVideoUrls() {
   return urls
 }
 
-async function resolvePageVideoSource(descriptor: MediaDescriptor | null) {
+async function resolvePageVideoSource(
+  descriptor: MediaDescriptor | null,
+  video: HTMLVideoElement | null = null
+) {
+  if (!descriptor) return null
+
+  const xStatusUrl = video ? findClosestXStatusUrl(video) : undefined
+  if (isXPage()) {
+    if (xStatusUrl) return resolveXVideoSource(descriptor, xStatusUrl)
+    if (
+      ["http:", "https:"].includes(new URL(descriptor.srcUrl).protocol) &&
+      new URL(descriptor.srcUrl).hostname === "video.twimg.com"
+    ) {
+      return descriptor
+    }
+    return null
+  }
+
   if (!descriptor || ["http:", "https:"].includes(new URL(descriptor.srcUrl).protocol)) {
     return descriptor
   }
@@ -269,4 +322,54 @@ async function resolvePageVideoSource(descriptor: MediaDescriptor | null) {
   } catch {
     return descriptor
   }
+}
+
+async function resolveXVideoSource(descriptor: MediaDescriptor, statusUrl: string) {
+  try {
+    const response = await fetch(statusUrl, {
+      credentials: "include",
+      signal: AbortSignal.timeout(5_000),
+    })
+    if (!response.ok) return null
+
+    const resolvedUrl = resolveDownloadableVideoUrl({
+      embeddedUrls: extractEmbeddedVideoUrls(await response.text()),
+    })
+    if (!resolvedUrl || new URL(resolvedUrl).hostname !== "video.twimg.com") return null
+
+    return {
+      ...descriptor,
+      mimeType: inferVideoMimeType(resolvedUrl),
+      pageUrl: statusUrl,
+      srcUrl: resolvedUrl,
+    }
+  } catch {
+    return null
+  }
+}
+
+function findClosestXStatusUrl(video: HTMLVideoElement) {
+  if (!isXPage()) return undefined
+
+  let container: Element | null = video
+  for (let depth = 0; container && depth < 10; depth += 1) {
+    const statusUrl = resolveXStatusUrl(
+      Array.from(container.querySelectorAll<HTMLAnchorElement>('a[href*="/status/"]')).map(
+        (anchor) => anchor.href
+      ),
+      location.href
+    )
+    if (statusUrl) return statusUrl
+    container = container.parentElement
+  }
+
+  return isDedicatedXStatusPage() ? resolveXStatusUrl([location.href], location.href) : undefined
+}
+
+function isDedicatedXStatusPage() {
+  return Boolean(resolveXStatusUrl([location.href], location.href))
+}
+
+function isXPage() {
+  return location.hostname === "x.com" || location.hostname === "www.x.com"
 }

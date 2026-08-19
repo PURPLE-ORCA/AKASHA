@@ -21,7 +21,10 @@ export function resolveDownloadableVideoUrl({
   ]
 
   return candidates
-    .map(({ score, url }) => ({ score: score + getQualityScore(url), url: normalizeVideoUrl(url) }))
+    .map(({ score, url }) => ({
+      score: score + getProviderScore(url) + getQualityScore(url),
+      url: normalizeVideoUrl(url),
+    }))
     .filter((candidate): candidate is { score: number; url: string } => Boolean(candidate.url))
     .sort((left, right) => right.score - left.score)[0]?.url
 }
@@ -41,15 +44,36 @@ export function inferVideoMimeType(url: string) {
   return new URL(url).pathname.toLowerCase().endsWith(".webm") ? "video/webm" : "video/mp4"
 }
 
+export function resolveXStatusUrl(hrefs: string[], pageUrl: string) {
+  for (const href of hrefs) {
+    try {
+      const url = new URL(href, pageUrl)
+      if (!isXHostname(url.hostname)) continue
+      if (!/^\/[A-Za-z0-9_]+\/status\/\d+\/?$/.test(url.pathname)) continue
+      url.search = ""
+      url.hash = ""
+      return url.toString()
+    } catch {
+      // Ignore malformed links collected from the page.
+    }
+  }
+}
+
 function normalizeVideoUrl(value: string) {
   try {
     const url = new URL(value.replace(/&amp;/g, "&"))
     if (!["http:", "https:"].includes(url.protocol)) return undefined
+    if (url.hostname === "abs.twimg.com") return undefined
+    if (url.hostname === "pbs.twimg.com" && url.pathname.startsWith("/static/")) return undefined
     if (!VIDEO_PATH_PATTERN.test(`${url.pathname}${url.search}${url.hash}`)) return undefined
     return url.toString()
   } catch {
     return undefined
   }
+}
+
+function isXHostname(hostname: string) {
+  return hostname === "x.com" || hostname === "www.x.com" || hostname.endsWith(".twitter.com")
 }
 
 function getQualityScore(value: string) {
@@ -60,4 +84,18 @@ function getQualityScore(value: string) {
   if (dimensions) return compatibilityScore + Number(dimensions[2])
   if (namedQuality) return compatibilityScore + Number(namedQuality[1])
   return compatibilityScore
+}
+
+function getProviderScore(value: string) {
+  try {
+    const url = new URL(value.replace(/&amp;/g, "&"))
+    if (url.hostname === "video.twimg.com") return 100_000_000
+    if (url.hostname.endsWith("pinimg.com") && url.pathname.includes("/videos/")) {
+      return 50_000_000
+    }
+    if (/\/(?:vid|videos)\//i.test(url.pathname)) return 5_000_000
+    return 0
+  } catch {
+    return 0
+  }
 }

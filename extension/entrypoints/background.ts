@@ -24,6 +24,8 @@ const CAPTURE_MENU_ID = "stillroom-capture-media"
 const OUTBOX_ALARM_NAME = "akasha-capture-outbox"
 const FAILED_NOTIFICATION_PREFIX = "akasha-save-failed:"
 const FOLDER_CACHE_FRESH_MS = 5 * 60 * 1_000
+const MEDIA_OBSERVER_FILE = "content-scripts/media-observer.js" as ScriptPublicPath
+const CAPTURE_PANEL_FILE = "content-scripts/akasha.js" as ScriptPublicPath
 
 let storageMutation = Promise.resolve()
 let outboxExecution: Promise<void> | null = null
@@ -70,7 +72,10 @@ export default defineBackground(() => {
   browser.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === OUTBOX_ALARM_NAME) void processOutbox()
   })
-  browser.runtime.onStartup.addListener(() => void processOutbox())
+  browser.runtime.onStartup.addListener(() => {
+    void processOutbox()
+    void installMediaObserversInOpenTabs()
+  })
   browser.notifications.onClicked.addListener((notificationId) => {
     if (notificationId.startsWith(FAILED_NOTIFICATION_PREFIX)) {
       void restoreFailedCapture(notificationId.slice(FAILED_NOTIFICATION_PREFIX.length))
@@ -82,6 +87,7 @@ export default defineBackground(() => {
   )
 
   void processOutbox()
+  void installMediaObserversInOpenTabs()
 })
 
 async function getMediaDescriptor(tabId?: number, frameId?: number) {
@@ -97,7 +103,7 @@ async function getMediaDescriptor(tabId?: number, frameId?: number) {
   } catch {
     try {
       await browser.scripting.executeScript({
-        files: ["/content-scripts/media-observer.js"],
+        files: [MEDIA_OBSERVER_FILE],
         target: frameId === undefined ? { tabId } : { frameIds: [frameId], tabId },
       })
       return (await browser.tabs.sendMessage(tabId, message, options)) as MediaDescriptor | null
@@ -118,7 +124,7 @@ async function openCapturePanel(tabId?: number) {
       // Manifest content scripts are not added retroactively to tabs that were
       // already open when an unpacked extension was installed or reloaded.
       await browser.scripting.executeScript({
-        files: ["/content-scripts/akasha.js"],
+        files: [CAPTURE_PANEL_FILE],
         target: { tabId },
       })
       const message: OpenCapturePanelMessage = { type: "akasha:open-capture" }
@@ -133,14 +139,57 @@ async function openCapturePanel(tabId?: number) {
 }
 
 async function captureVisibleVideo(tab: Browser.tabs.Tab) {
-  const descriptor = await getMediaDescriptor(tab.id, 0)
+  const descriptor = await getLargestVisibleVideoDescriptor(tab.id)
 
   if (descriptor && tab.url) {
     await storeVideoDraftAndOpen(descriptor, tab)
     return
   }
 
-  await openCapturePanel(tab.id)
+  await showCaptureNotification("No video found", "Play the video, then try again.")
+}
+
+async function getLargestVisibleVideoDescriptor(tabId?: number) {
+  if (!tabId) return null
+
+  try {
+    const injectedFrames = await browser.scripting.executeScript({
+      files: [MEDIA_OBSERVER_FILE],
+      target: { allFrames: true, tabId },
+    })
+    const frameIds = [...new Set(injectedFrames.map(({ frameId }) => frameId))]
+    const descriptors = await Promise.all(
+      frameIds.map((frameId) => getMediaDescriptor(tabId, frameId))
+    )
+
+    return (
+      descriptors
+        .filter((descriptor): descriptor is MediaDescriptor => descriptor !== null)
+        .sort(
+          (left, right) =>
+            (right.visibleArea ?? (right.width ?? 0) * (right.height ?? 0)) -
+            (left.visibleArea ?? (left.width ?? 0) * (left.height ?? 0))
+        )[0] ?? null
+    )
+  } catch {
+    return getMediaDescriptor(tabId, 0)
+  }
+}
+
+async function installMediaObserversInOpenTabs() {
+  const tabs = await browser.tabs.query({})
+  await Promise.allSettled(
+    tabs.flatMap(({ id: tabId }) =>
+      tabId
+        ? [
+            browser.scripting.executeScript({
+              files: [MEDIA_OBSERVER_FILE],
+              target: { allFrames: true, tabId },
+            }),
+          ]
+        : []
+    )
+  )
 }
 
 async function storeVideoDraftAndOpen(
@@ -151,7 +200,7 @@ async function storeVideoDraftAndOpen(
 
   const draft = createCaptureDraft(
     {
-      pageUrl: tab.url,
+      pageUrl: descriptor.pageUrl ?? tab.url,
       ...descriptor,
     },
     tab.title
@@ -172,7 +221,11 @@ async function sendOpenCaptureMessage(
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
-      return await browser.tabs.sendMessage(tabId, message)
+      const response = (await browser.tabs.sendMessage(tabId, message)) as
+        | { ok?: boolean }
+        | undefined
+      if (response?.ok !== true) throw new Error("Akasha Capture is not ready on this page.")
+      return response
     } catch (error) {
       lastError = error
       if (attempt < attempts - 1) await new Promise((resolve) => setTimeout(resolve, 50))

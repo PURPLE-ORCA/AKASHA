@@ -23,8 +23,10 @@ export type MediaDescriptor = {
   height?: number
   mediaType: "video"
   mimeType?: string
+  pageUrl?: string
   posterUrl?: string
   srcUrl: string
+  visibleArea?: number
   width?: number
 }
 
