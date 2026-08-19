@@ -327,7 +327,9 @@ async function resolvePageVideoSource(
 async function resolveXVideoSource(descriptor: MediaDescriptor, statusUrl: string) {
   try {
     const response = await fetch(statusUrl, {
-      credentials: "include",
+      // X's authenticated app shell keeps tweet media in an encoded client
+      // payload. The public status response exposes the post's MP4 variants.
+      credentials: "omit",
       signal: AbortSignal.timeout(5_000),
     })
     if (!response.ok) return null
