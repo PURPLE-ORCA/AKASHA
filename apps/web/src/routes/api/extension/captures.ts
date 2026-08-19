@@ -7,7 +7,11 @@ import {
   setExtensionCredentialHeader,
 } from "@/server/auth/extension-auth.server"
 import type { GoogleTokenCredentials } from "@/server/auth/google-oauth.server"
-import { CaptureSourceError, saveCapture } from "@/server/drive/drive.server"
+import {
+  CaptureSourceError,
+  saveCapture,
+  saveUploadedVideoCapture,
+} from "@/server/drive/drive.server"
 
 export const Route = createFileRoute("/api/extension/captures")({
   server: {
@@ -38,9 +42,8 @@ export const Route = createFileRoute("/api/extension/captures")({
         }
         const authenticationMs = performance.now() - authenticationStartedAt
 
-        const captureResult = captureRequestSchema.safeParse(
-          await request.json().catch(() => null)
-        )
+        const requestInput = await parseCaptureRequest(request)
+        const captureResult = captureRequestSchema.safeParse(requestInput?.capture)
 
         if (!captureResult.success) {
           return Response.json(
@@ -51,15 +54,23 @@ export const Route = createFileRoute("/api/extension/captures")({
 
         try {
           const capture = captureResult.data
-          const result = await saveCapture(
-            credentials,
-            capture,
-            capture.folderId,
-            {
-              attempt: capture.attempt,
-              captureId: capture.captureId,
-            }
-          )
+          const options = {
+            attempt: capture.attempt,
+            captureId: capture.captureId,
+          }
+          const result = requestInput?.media
+            ? await saveUploadedVideoCapture(
+                credentials,
+                capture,
+                capture.folderId,
+                {
+                  byteSize: requestInput.media.size,
+                  mimeType: requestInput.media.type,
+                  stream: requestInput.media.stream(),
+                },
+                options
+              )
+            : await saveCapture(credentials, capture, capture.folderId, options)
           headers.set(
             "Server-Timing",
             createCaptureServerTiming(authenticationMs, result.timings)
@@ -81,6 +92,27 @@ export const Route = createFileRoute("/api/extension/captures")({
     },
   },
 })
+
+async function parseCaptureRequest(request: Request) {
+  if (!request.headers.get("Content-Type")?.startsWith("multipart/form-data")) {
+    return { capture: await request.json().catch(() => null) }
+  }
+
+  const form = await request.formData().catch(() => null)
+  const captureJson = form?.get("capture")
+  const media = form?.get("media")
+
+  if (typeof captureJson !== "string" || !(media instanceof File)) return null
+
+  try {
+    return {
+      capture: JSON.parse(captureJson) as unknown,
+      media,
+    }
+  } catch {
+    return null
+  }
+}
 
 function createCaptureServerTiming(
   authenticationMs: number,

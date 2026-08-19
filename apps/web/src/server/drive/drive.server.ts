@@ -227,28 +227,9 @@ export async function saveCapture(
   }
 
   if (draft.kind === "video" && draft.storageMode !== "binary") {
-    const body = Buffer.from(JSON.stringify(draft))
-    const driveUploadStartedAt = performance.now()
-    const response = await drive.files.create(
-      {
-        fields:
-          "id,name,mimeType,parents,thumbnailLink,appProperties,createdTime",
-        media: {
-          body: Readable.from(body),
-          mimeType: "application/json",
-        },
-        requestBody: createCaptureMetadata(
-          draft,
-          folderId,
-          "application/json",
-          options.captureId
-        ),
-      },
-      { timeout: 60_000 }
+    throw new CaptureSourceError(
+      "This site does not expose a downloadable video."
     )
-    timings.driveUploadMs = performance.now() - driveUploadStartedAt
-
-    return { file: response.data, timings }
   }
 
   const sourceRequestStartedAt = performance.now()
@@ -293,57 +274,128 @@ export async function saveCapture(
   const sourceStream = Readable.fromWeb(
     sourceResponse.body as unknown as NodeReadableStream
   )
+
+  try {
+    const file = await uploadCaptureStream(
+      drive,
+      draft,
+      folderId,
+      sourceStream,
+      mimeType,
+      maximumBytes,
+      timings,
+      options.captureId
+    )
+    return { file, timings }
+  } finally {
+    sourceStream.destroy()
+  }
+}
+
+export async function saveUploadedVideoCapture(
+  credentials: DriveCredentialInput,
+  draft: CaptureDraft,
+  folderId: string,
+  upload: {
+    byteSize: number
+    mimeType: string
+    stream: ReadableStream<Uint8Array>
+  },
+  options: { attempt?: number; captureId?: string } = {}
+) {
+  if (draft.kind !== "video" || draft.storageMode !== "binary") {
+    throw new CaptureSourceError("Akasha received an invalid video upload.")
+  }
+  if (upload.byteSize <= 0 || upload.byteSize > MAXIMUM_VIDEO_BYTES) {
+    throw new CaptureSourceError("This video is too large to save.")
+  }
+
+  const drive = createDriveClient(credentials)
+  const timings: CaptureSaveTimings = {
+    driveUploadMs: 0,
+    idempotencyMs: 0,
+    sourceResponseMs: 0,
+  }
+
+  if (options.captureId && (options.attempt ?? 1) > 1) {
+    const idempotencyStartedAt = performance.now()
+    const existingCapture = await findCaptureById(drive, options.captureId)
+    timings.idempotencyMs = performance.now() - idempotencyStartedAt
+
+    if (existingCapture) return { file: existingCapture, timings }
+  }
+
+  const mimeType = normalizeMediaMimeType(upload.mimeType, "video")
+  const sourceStream = Readable.fromWeb(
+    upload.stream as unknown as NodeReadableStream
+  )
+
+  try {
+    const file = await uploadCaptureStream(
+      drive,
+      draft,
+      folderId,
+      sourceStream,
+      mimeType,
+      MAXIMUM_VIDEO_BYTES,
+      timings,
+      options.captureId
+    )
+    return { file, timings }
+  } finally {
+    sourceStream.destroy()
+  }
+}
+
+async function uploadCaptureStream(
+  drive: drive_v3.Drive,
+  draft: CaptureDraft,
+  folderId: string,
+  sourceStream: Readable,
+  mimeType: string,
+  maximumBytes: number,
+  timings: CaptureSaveTimings,
+  captureId?: string
+) {
   const limitedStream = sourceStream.pipe(
     draft.kind === "video"
       ? createVideoValidationTransform(mimeType, maximumBytes)
       : createSizeLimitTransform(maximumBytes)
   )
+  const driveUploadStartedAt = performance.now()
+  const response = await drive.files.create(
+    {
+      fields: "id,name,mimeType,parents,thumbnailLink,appProperties,createdTime",
+      media: { body: limitedStream, mimeType },
+      requestBody: createCaptureMetadata(draft, folderId, mimeType, captureId),
+    },
+    { timeout: 60_000 }
+  )
+  timings.driveUploadMs = performance.now() - driveUploadStartedAt
+  let file = response.data
 
-  try {
-    const driveUploadStartedAt = performance.now()
-    const response = await drive.files.create(
-      {
-        fields:
-          "id,name,mimeType,parents,thumbnailLink,appProperties,createdTime",
-        media: { body: limitedStream, mimeType },
-        requestBody: createCaptureMetadata(
-          draft,
-          folderId,
-          mimeType,
-          options.captureId
-        ),
-      },
-      { timeout: 60_000 }
-    )
-    timings.driveUploadMs = performance.now() - driveUploadStartedAt
-    let file = response.data
+  if (draft.kind === "video" && file.id && draft.thumbnailUrl) {
+    const posterDriveFileId = await saveVideoPoster(
+      drive,
+      draft.thumbnailUrl,
+      draft.title,
+      folderId,
+      captureId
+    ).catch(() => undefined)
 
-    if (draft.kind === "video" && file.id && draft.thumbnailUrl) {
-      const posterDriveFileId = await saveVideoPoster(
-        drive,
-        draft.thumbnailUrl,
-        draft.title,
-        folderId,
-        options.captureId
-      ).catch(() => undefined)
-
-      if (posterDriveFileId) {
-        const updated = await drive.files.update({
-          fileId: file.id,
-          fields:
-            "id,name,mimeType,size,parents,thumbnailLink,appProperties,createdTime",
-          requestBody: {
-            description: createCaptureDescription(draft, posterDriveFileId),
-          },
-        })
-        file = updated.data
-      }
+    if (posterDriveFileId) {
+      const updated = await drive.files.update({
+        fileId: file.id,
+        fields: "id,name,mimeType,size,parents,thumbnailLink,appProperties,createdTime",
+        requestBody: {
+          description: createCaptureDescription(draft, posterDriveFileId),
+        },
+      })
+      file = updated.data
     }
-
-    return { file, timings }
-  } finally {
-    sourceStream.destroy()
   }
+
+  return file
 }
 
 function createCaptureMetadata(
@@ -354,10 +406,7 @@ function createCaptureMetadata(
 ) {
   const extension =
     mimeType.split("/")[1]?.replace(/[^a-z0-9.+-]/gi, "") || "jpg"
-  const fileName =
-    draft.kind === "video" && mimeType === "application/json"
-      ? `${slugify(draft.title)}.stillroom.json`
-      : `${slugify(draft.title)}.${extension}`
+  const fileName = `${slugify(draft.title)}.${extension}`
 
   return {
     appProperties: {
