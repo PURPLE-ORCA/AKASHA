@@ -29,23 +29,6 @@ export const Route = createFileRoute("/api/extension/dedupe")({
           credentials = await resolveExtensionGoogleCredentials(request)
           setExtensionCredentialHeader(headers, credentials)
         } catch (error) {
-          if (
-            input.data.pageToken &&
-            typeof error === "object" &&
-            error &&
-            "code" in error &&
-            Number(error.code) === 400
-          ) {
-            return Response.json(
-              {
-                restart: true,
-                scannedCount: 0,
-                updatedCount: 0,
-              },
-              { headers }
-            )
-          }
-
           return Response.json(
             {
               error:
@@ -77,6 +60,23 @@ export const Route = createFileRoute("/api/extension/dedupe")({
             { headers }
           )
         } catch (error) {
+          if (
+            input.data.pageToken &&
+            typeof error === "object" &&
+            error &&
+            "code" in error &&
+            Number(error.code) === 400
+          ) {
+            return Response.json(
+              {
+                restart: true,
+                scannedCount: 0,
+                updatedCount: 0,
+              },
+              { headers }
+            )
+          }
+
           return Response.json(
             {
               error:
