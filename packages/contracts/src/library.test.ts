@@ -18,4 +18,25 @@ describe("captureRequestSchema", () => {
       captureId: "8e967b1b-8420-47a1-b116-20f37725a443",
     })
   })
+
+  it("accepts a direct video descriptor", () => {
+    expect(
+      captureRequestSchema.parse({
+        folderId: "folder",
+        kind: "video",
+        storageMode: "binary",
+        pageUrl: "https://example.com/showcase",
+        sourceUrl: "https://cdn.example.com/interaction.mp4",
+        thumbnailUrl: "https://cdn.example.com/poster.jpg",
+        durationSeconds: 12.4,
+        width: 1280,
+        height: 720,
+        title: "Interaction",
+      })
+    ).toMatchObject({
+      kind: "video",
+      storageMode: "binary",
+      durationSeconds: 12.4,
+    })
+  })
 })

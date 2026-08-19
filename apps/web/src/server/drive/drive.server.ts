@@ -1,4 +1,5 @@
 import { isIP } from "node:net"
+import { lookup } from "node:dns/promises"
 import { Readable, Transform } from "node:stream"
 import type { ReadableStream as NodeReadableStream } from "node:stream/web"
 import type { CaptureDraft } from "@akasha/contracts"
@@ -13,7 +14,18 @@ const FOLDER_MIME_TYPE = "application/vnd.google-apps.folder"
 const ROOT_PROPERTY_KEY = "stillroomRole"
 const ROOT_PROPERTY_VALUE = "root"
 const FILE_FIELDS =
-  "nextPageToken,files(id,name,mimeType,parents,description,thumbnailLink,webContentLink,webViewLink,appProperties,imageMediaMetadata,videoMediaMetadata,createdTime)"
+  "nextPageToken,files(id,name,mimeType,size,parents,description,thumbnailLink,webContentLink,webViewLink,appProperties,imageMediaMetadata,videoMediaMetadata,createdTime)"
+const IMAGE_MIME_TYPES = new Set([
+  "image/avif",
+  "image/gif",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+])
+const VIDEO_MIME_TYPES = new Set(["video/mp4", "video/webm"])
+const MAXIMUM_IMAGE_BYTES = 20 * 1024 * 1024
+const MAXIMUM_POSTER_BYTES = 5 * 1024 * 1024
+const MAXIMUM_VIDEO_BYTES = 50 * 1024 * 1024
 
 export { FOLDER_MIME_TYPE }
 
@@ -214,7 +226,7 @@ export async function saveCapture(
     }
   }
 
-  if (draft.kind === "video") {
+  if (draft.kind === "video" && draft.storageMode !== "binary") {
     const body = Buffer.from(JSON.stringify(draft))
     const driveUploadStartedAt = performance.now()
     const response = await drive.files.create(
@@ -239,11 +251,9 @@ export async function saveCapture(
     return { file: response.data, timings }
   }
 
-  assertSafeRemoteSourceUrl(draft.sourceUrl)
   const sourceRequestStartedAt = performance.now()
-  const sourceResponse = await fetch(draft.sourceUrl, {
+  const sourceResponse = await fetchSafeRemoteSource(draft.sourceUrl, {
     headers: { "User-Agent": "Akasha Capture/1.0" },
-    redirect: "follow",
     signal: AbortSignal.timeout(15_000),
   })
 
@@ -253,31 +263,40 @@ export async function saveCapture(
       sourceResponse.status === 429 ||
       sourceResponse.status >= 500
     ) {
-      throw new Error("The source image is temporarily unavailable.")
+      throw new Error(`The source ${draft.kind} is temporarily unavailable.`)
     }
 
-    throw new CaptureSourceError("The source image could not be downloaded.")
+    throw new CaptureSourceError(
+      `The source ${draft.kind} could not be downloaded.`
+    )
   }
   timings.sourceResponseMs = performance.now() - sourceRequestStartedAt
 
   const contentLength = Number(sourceResponse.headers.get("Content-Length"))
-  const maximumImageBytes = 20 * 1024 * 1024
+  const maximumBytes =
+    draft.kind === "video" ? MAXIMUM_VIDEO_BYTES : MAXIMUM_IMAGE_BYTES
 
-  if (Number.isFinite(contentLength) && contentLength > maximumImageBytes) {
-    throw new CaptureSourceError("This image is too large to save.")
+  if (Number.isFinite(contentLength) && contentLength > maximumBytes) {
+    throw new CaptureSourceError(`This ${draft.kind} is too large to save.`)
   }
 
   if (!sourceResponse.body) {
-    throw new CaptureSourceError("The source image did not contain any data.")
+    throw new CaptureSourceError(
+      `The source ${draft.kind} did not contain any data.`
+    )
   }
 
-  const mimeType =
-    sourceResponse.headers.get("Content-Type")?.split(";")[0] || "image/jpeg"
+  const mimeType = normalizeMediaMimeType(
+    sourceResponse.headers.get("Content-Type"),
+    draft.kind
+  )
   const sourceStream = Readable.fromWeb(
     sourceResponse.body as unknown as NodeReadableStream
   )
   const limitedStream = sourceStream.pipe(
-    createSizeLimitTransform(maximumImageBytes)
+    draft.kind === "video"
+      ? createVideoValidationTransform(mimeType, maximumBytes)
+      : createSizeLimitTransform(maximumBytes)
   )
 
   try {
@@ -297,7 +316,31 @@ export async function saveCapture(
       { timeout: 60_000 }
     )
     timings.driveUploadMs = performance.now() - driveUploadStartedAt
-    return { file: response.data, timings }
+    let file = response.data
+
+    if (draft.kind === "video" && file.id && draft.thumbnailUrl) {
+      const posterDriveFileId = await saveVideoPoster(
+        drive,
+        draft.thumbnailUrl,
+        draft.title,
+        folderId,
+        options.captureId
+      ).catch(() => undefined)
+
+      if (posterDriveFileId) {
+        const updated = await drive.files.update({
+          fileId: file.id,
+          fields:
+            "id,name,mimeType,size,parents,thumbnailLink,appProperties,createdTime",
+          requestBody: {
+            description: createCaptureDescription(draft, posterDriveFileId),
+          },
+        })
+        file = updated.data
+      }
+    }
+
+    return { file, timings }
   } finally {
     sourceStream.destroy()
   }
@@ -312,7 +355,7 @@ function createCaptureMetadata(
   const extension =
     mimeType.split("/")[1]?.replace(/[^a-z0-9.+-]/gi, "") || "jpg"
   const fileName =
-    draft.kind === "video"
+    draft.kind === "video" && mimeType === "application/json"
       ? `${slugify(draft.title)}.stillroom.json`
       : `${slugify(draft.title)}.${extension}`
 
@@ -322,19 +365,34 @@ function createCaptureMetadata(
       stillroomKind: draft.kind,
       stillroomType: "item",
     },
-    description: JSON.stringify({
-      pageUrl: draft.pageUrl,
-      sourceUrl: draft.sourceUrl,
-      thumbnailUrl: draft.thumbnailUrl,
-      title: draft.title,
-    }),
+    description: createCaptureDescription(draft),
     mimeType,
     name: fileName,
     parents: [folderId],
   }
 }
 
-export function createSizeLimitTransform(maximumBytes: number) {
+function createCaptureDescription(
+  draft: CaptureDraft,
+  posterDriveFileId?: string
+) {
+  return JSON.stringify({
+    durationSeconds: draft.durationSeconds,
+    height: draft.height,
+    pageUrl: draft.pageUrl,
+    posterDriveFileId,
+    sourceUrl: draft.sourceUrl,
+    storageMode: draft.storageMode,
+    thumbnailUrl: draft.thumbnailUrl,
+    title: draft.title,
+    width: draft.width,
+  })
+}
+
+export function createSizeLimitTransform(
+  maximumBytes: number,
+  mediaLabel = "image"
+) {
   let receivedBytes = 0
 
   return new Transform({
@@ -342,13 +400,138 @@ export function createSizeLimitTransform(maximumBytes: number) {
       receivedBytes += chunk.byteLength
 
       if (receivedBytes > maximumBytes) {
-        callback(new CaptureSourceError("This image is too large to save."))
+        callback(
+          new CaptureSourceError(`This ${mediaLabel} is too large to save.`)
+        )
         return
       }
 
       callback(null, chunk)
     },
   })
+}
+
+export function createVideoValidationTransform(
+  mimeType: string,
+  maximumBytes: number
+) {
+  let buffered = Buffer.alloc(0)
+  let receivedBytes = 0
+  let validated = false
+
+  return new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
+      receivedBytes += chunk.byteLength
+      if (receivedBytes > maximumBytes) {
+        callback(new CaptureSourceError("This video is too large to save."))
+        return
+      }
+
+      if (validated) {
+        callback(null, chunk)
+        return
+      }
+
+      buffered = Buffer.concat([buffered, chunk])
+      if (buffered.byteLength < 12) {
+        callback()
+        return
+      }
+
+      if (!hasSupportedVideoSignature(buffered, mimeType)) {
+        callback(new CaptureSourceError("This video format is not supported."))
+        return
+      }
+
+      validated = true
+      callback(null, buffered)
+      buffered = Buffer.alloc(0)
+    },
+    flush(callback) {
+      if (!validated) {
+        callback(new CaptureSourceError("This video format is not supported."))
+        return
+      }
+      callback()
+    },
+  })
+}
+
+function hasSupportedVideoSignature(bytes: Buffer, mimeType: string) {
+  if (mimeType === "video/webm") {
+    return bytes.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]))
+  }
+
+  return (
+    mimeType === "video/mp4" &&
+    bytes.subarray(4, 8).toString("ascii") === "ftyp"
+  )
+}
+
+function normalizeMediaMimeType(
+  value: string | null,
+  kind: CaptureDraft["kind"]
+) {
+  const mimeType = value?.split(";")[0]?.trim().toLowerCase() ?? ""
+  const allowedTypes = kind === "video" ? VIDEO_MIME_TYPES : IMAGE_MIME_TYPES
+
+  if (!allowedTypes.has(mimeType)) {
+    throw new CaptureSourceError(`This ${kind} format is not supported.`)
+  }
+
+  return mimeType
+}
+
+async function saveVideoPoster(
+  drive: drive_v3.Drive,
+  sourceUrl: string,
+  title: string,
+  folderId: string,
+  captureId?: string
+) {
+  const response = await fetchSafeRemoteSource(sourceUrl, {
+    headers: { "User-Agent": "Akasha Capture/1.0" },
+    signal: AbortSignal.timeout(10_000),
+  })
+  if (!response.ok || !response.body) return undefined
+
+  const mimeType = normalizeMediaMimeType(
+    response.headers.get("Content-Type"),
+    "image"
+  )
+  const contentLength = Number(response.headers.get("Content-Length"))
+  if (Number.isFinite(contentLength) && contentLength > MAXIMUM_POSTER_BYTES) {
+    return undefined
+  }
+
+  const sourceStream = Readable.fromWeb(
+    response.body as unknown as NodeReadableStream
+  )
+
+  try {
+    const extension = mimeType.split("/")[1] ?? "jpg"
+    const created = await drive.files.create({
+      fields: "id",
+      media: {
+        body: sourceStream.pipe(
+          createSizeLimitTransform(MAXIMUM_POSTER_BYTES, "poster")
+        ),
+        mimeType,
+      },
+      requestBody: {
+        appProperties: {
+          ...(captureId ? { akashaCaptureId: `${captureId}:poster` } : {}),
+          stillroomType: "poster",
+        },
+        mimeType,
+        name: `${slugify(title)}-poster.${extension}`,
+        parents: [folderId],
+      },
+    })
+    return created.data.id ?? undefined
+  } finally {
+    sourceStream.destroy()
+  }
 }
 
 async function findCaptureById(drive: drive_v3.Drive, captureId: string) {
@@ -371,12 +554,62 @@ function normalizeDriveCredentials(
     : credentials
 }
 
+export async function fetchSafeRemoteSource(
+  value: string,
+  init: RequestInit = {},
+  dependencies: {
+    fetcher?: typeof fetch
+    resolveAddresses?: (hostname: string) => Promise<string[]>
+  } = {}
+) {
+  const fetcher = dependencies.fetcher ?? fetch
+  const resolveAddresses =
+    dependencies.resolveAddresses ??
+    (async (hostname: string) =>
+      (await lookup(hostname, { all: true, verbatim: true })).map(
+        (entry) => entry.address
+      ))
+  let currentUrl = new URL(value)
+
+  for (let redirectCount = 0; redirectCount <= 5; redirectCount += 1) {
+    assertSafeRemoteSourceUrl(currentUrl.toString())
+    const hostname = normalizeHostname(currentUrl.hostname)
+    const addresses = isIP(hostname)
+      ? [hostname]
+      : await resolveAddresses(hostname)
+
+    if (addresses.length === 0 || addresses.some(isPrivateIpAddress)) {
+      throw new CaptureSourceError(
+        "Akasha cannot download media from private addresses."
+      )
+    }
+
+    const response = await fetcher(currentUrl, { ...init, redirect: "manual" })
+    if (![301, 302, 303, 307, 308].includes(response.status)) return response
+
+    const location = response.headers.get("Location")
+    await response.body?.cancel()
+    if (!location) {
+      throw new CaptureSourceError(
+        "The media source returned an invalid redirect."
+      )
+    }
+    currentUrl = new URL(location, currentUrl)
+  }
+
+  throw new CaptureSourceError("The media source redirected too many times.")
+}
+
 function assertSafeRemoteSourceUrl(value: string) {
   const url = new URL(value)
-  const hostname = url.hostname.toLowerCase()
+  const hostname = normalizeHostname(url.hostname)
 
-  if (!["http:", "https:"].includes(url.protocol)) {
-    throw new CaptureSourceError("Akasha can only save remote images.")
+  if (
+    !["http:", "https:"].includes(url.protocol) ||
+    url.username ||
+    url.password
+  ) {
+    throw new CaptureSourceError("Akasha can only save remote media.")
   }
 
   if (
@@ -386,23 +619,29 @@ function assertSafeRemoteSourceUrl(value: string) {
     isPrivateIpAddress(hostname)
   ) {
     throw new CaptureSourceError(
-      "Akasha cannot download images from private addresses."
+      "Akasha cannot download media from private addresses."
     )
   }
 }
 
-function isPrivateIpAddress(hostname: string) {
+export function isPrivateIpAddress(hostname: string) {
+  hostname = normalizeHostname(hostname)
   const ipVersion = isIP(hostname)
 
   if (ipVersion === 4) {
-    const [first = 0, second = 0] = hostname.split(".").map(Number)
+    const [first = 0, second = 0, third = 0] = hostname.split(".").map(Number)
     return (
       first === 10 ||
       first === 127 ||
       (first === 169 && second === 254) ||
       (first === 172 && second >= 16 && second <= 31) ||
       (first === 192 && second === 168) ||
-      first === 0
+      (first === 192 && second === 0) ||
+      (first === 198 && [18, 19, 51].includes(second)) ||
+      (first === 203 && second === 0 && third === 113) ||
+      first === 0 ||
+      (first === 100 && second >= 64 && second <= 127) ||
+      first >= 224
     )
   }
 
@@ -415,11 +654,20 @@ function isPrivateIpAddress(hostname: string) {
       hostname.startsWith("fe8") ||
       hostname.startsWith("fe9") ||
       hostname.startsWith("fea") ||
-      hostname.startsWith("feb")
+      hostname.startsWith("feb") ||
+      hostname.startsWith("ff") ||
+      hostname.startsWith("::ffff:")
     )
   }
 
   return false
+}
+
+function normalizeHostname(hostname: string) {
+  const normalized = hostname.toLowerCase()
+  return normalized.startsWith("[") && normalized.endsWith("]")
+    ? normalized.slice(1, -1)
+    : normalized
 }
 
 function slugify(value: string) {

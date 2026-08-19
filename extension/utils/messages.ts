@@ -13,6 +13,16 @@ export type ExtensionRequest =
 export type ExtensionResponse<T> = { ok: true; value: T } | { ok: false; error: string }
 
 export type OpenCapturePanelMessage = { type: "akasha:open-capture" }
+export type GetMediaDescriptorMessage = { type: "akasha:get-media-descriptor" }
+export type MediaDescriptor = {
+  durationSeconds?: number
+  height?: number
+  mediaType: "video"
+  mimeType?: string
+  posterUrl?: string
+  srcUrl: string
+  width?: number
+}
 
 export async function callExtension<T>(request: ExtensionRequest) {
   const response = (await browser.runtime.sendMessage(request)) as ExtensionResponse<T>

@@ -6,6 +6,7 @@ export type {
   LibraryFolder,
   LibraryItem,
   MediaKind,
+  MediaStorage,
 } from "./library"
 export {
   captureDraftSchema,
@@ -13,4 +14,5 @@ export {
   libraryFolderSchema,
   libraryItemSchema,
   mediaKindSchema,
+  mediaStorageSchema,
 } from "./library"

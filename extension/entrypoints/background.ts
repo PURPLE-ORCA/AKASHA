@@ -1,6 +1,12 @@
 import { AkashaApiError, connectAkasha, listFolderOptions, saveCapture } from "@/utils/akasha-api"
 import { createCaptureDraft } from "@/utils/capture"
-import type { ExtensionRequest, ExtensionResponse, OpenCapturePanelMessage } from "@/utils/messages"
+import type {
+  ExtensionRequest,
+  ExtensionResponse,
+  GetMediaDescriptorMessage,
+  MediaDescriptor,
+  OpenCapturePanelMessage,
+} from "@/utils/messages"
 import {
   type CaptureOutboxJob,
   createCaptureOutboxJob,
@@ -37,7 +43,9 @@ export default defineBackground(() => {
       return
     }
 
-    const draft = createCaptureDraft(info, tab?.title)
+    const descriptor =
+      info.mediaType === "video" ? await getMediaDescriptor(tab?.id, info.frameId) : null
+    const draft = createCaptureDraft(descriptor ? { ...info, ...descriptor } : info, tab?.title)
 
     if (!draft) {
       await showCaptureNotification(
@@ -69,6 +77,21 @@ export default defineBackground(() => {
 
   void processOutbox()
 })
+
+async function getMediaDescriptor(tabId?: number, frameId?: number) {
+  if (!tabId) return null
+
+  try {
+    const message: GetMediaDescriptorMessage = {
+      type: "akasha:get-media-descriptor",
+    }
+    return (await browser.tabs.sendMessage(tabId, message, {
+      frameId,
+    })) as MediaDescriptor | null
+  } catch {
+    return null
+  }
+}
 
 async function openCapturePanel(tabId?: number) {
   if (!tabId) return
@@ -251,7 +274,10 @@ async function restoreFailedCapture(captureId: string) {
   if (!restoredJob) return
 
   await browser.notifications.clear(`${FAILED_NOTIFICATION_PREFIX}${captureId}`)
-  const [activeTab] = await browser.tabs.query({ active: true, currentWindow: true })
+  const [activeTab] = await browser.tabs.query({
+    active: true,
+    currentWindow: true,
+  })
   await openCapturePanel(activeTab?.id)
 }
 

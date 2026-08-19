@@ -1,13 +1,18 @@
 import { z } from "zod"
 
 export const mediaKindSchema = z.enum(["image", "video"])
+export const mediaStorageSchema = z.enum(["binary", "reference"])
 
 export const captureDraftSchema = z.object({
   kind: mediaKindSchema,
+  storageMode: mediaStorageSchema.optional(),
   sourceUrl: z.url(),
   pageUrl: z.url(),
   title: z.string().trim().min(1).max(240),
   thumbnailUrl: z.union([z.url(), z.string().startsWith("/")]).optional(),
+  durationSeconds: z.number().nonnegative().optional(),
+  width: z.int().positive().optional(),
+  height: z.int().positive().optional(),
 })
 
 export const libraryFolderSchema = z.object({
@@ -21,6 +26,7 @@ export const libraryItemSchema = z.object({
   driveFileId: z.string().min(1),
   folderId: z.string().min(1),
   kind: mediaKindSchema,
+  storageMode: mediaStorageSchema.optional(),
   title: z.string().trim().min(1).max(240),
   sourceUrl: z.url(),
   thumbnailUrl: z.union([z.url(), z.string().startsWith("/")]).optional(),
@@ -28,6 +34,8 @@ export const libraryItemSchema = z.object({
   width: z.int().positive().optional(),
   height: z.int().positive().optional(),
   durationSeconds: z.int().nonnegative().optional(),
+  byteSize: z.int().nonnegative().optional(),
+  mimeType: z.string().trim().min(1).optional(),
   capturedAt: z.iso.datetime(),
 })
 
@@ -42,3 +50,4 @@ export type CaptureRequest = z.infer<typeof captureRequestSchema>
 export type LibraryFolder = z.infer<typeof libraryFolderSchema>
 export type LibraryItem = z.infer<typeof libraryItemSchema>
 export type MediaKind = z.infer<typeof mediaKindSchema>
+export type MediaStorage = z.infer<typeof mediaStorageSchema>

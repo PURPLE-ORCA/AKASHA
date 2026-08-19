@@ -1,10 +1,6 @@
 import type { drive_v3 } from "googleapis"
 import { libraryFolderSchema, libraryItemSchema } from "@akasha/contracts"
-import type {
-  LibraryFolder,
-  LibraryItem,
-  MediaKind,
-} from "@akasha/contracts"
+import type { LibraryFolder, LibraryItem, MediaKind } from "@akasha/contracts"
 
 import {
   ensureStillroomRoot,
@@ -85,6 +81,8 @@ export function mapDriveFileToLibraryItem(
   file: drive_v3.Schema$File,
   folderId: string
 ) {
+  if (file.appProperties?.stillroomType === "poster") return null
+
   const captureMetadata = parseCaptureMetadata(file.description)
   const sourceUrl = captureMetadata.sourceUrl ?? file.webViewLink
 
@@ -93,33 +91,65 @@ export function mapDriveFileToLibraryItem(
   }
 
   const result = libraryItemSchema.safeParse({
+    byteSize: parseByteSize(file.size),
     capturedAt: file.createdTime,
     driveFileId: file.id,
-    durationSeconds: parseDurationSeconds(
-      file.videoMediaMetadata?.durationMillis
-    ),
+    durationSeconds:
+      parseDurationSeconds(file.videoMediaMetadata?.durationMillis) ??
+      normalizeDurationSeconds(captureMetadata.durationSeconds),
     folderId,
-    height: file.imageMediaMetadata?.height ?? undefined,
+    height:
+      file.imageMediaMetadata?.height ??
+      file.videoMediaMetadata?.height ??
+      captureMetadata.height,
     id: file.id,
     kind: parseMediaKind(file),
+    mimeType: file.mimeType ?? undefined,
     sourceLabel: getSourceLabel(sourceUrl),
     sourceUrl,
-    thumbnailUrl:
-      file.appProperties?.stillroomKind === "video"
-        ? captureMetadata.thumbnailUrl
-        : `/api/media/${file.id}`,
+    storageMode:
+      captureMetadata.storageMode ??
+      (file.mimeType === "application/json" ? "reference" : "binary"),
+    thumbnailUrl: getThumbnailUrl(file, captureMetadata),
     title: captureMetadata.title ?? removeFileExtension(file.name),
-    width: file.imageMediaMetadata?.width ?? undefined,
+    width:
+      file.imageMediaMetadata?.width ??
+      file.videoMediaMetadata?.width ??
+      captureMetadata.width,
   })
 
   return result.success ? result.data : null
 }
 
 type CaptureMetadata = {
+  durationSeconds?: number
+  height?: number
   pageUrl?: string
+  posterDriveFileId?: string
   sourceUrl?: string
+  storageMode?: "binary" | "reference"
   thumbnailUrl?: string
   title?: string
+  width?: number
+}
+
+function getThumbnailUrl(
+  file: drive_v3.Schema$File,
+  captureMetadata: CaptureMetadata
+) {
+  if (file.appProperties?.stillroomKind !== "video") {
+    return `/api/media/${file.id}`
+  }
+
+  return captureMetadata.posterDriveFileId
+    ? `/api/media/${captureMetadata.posterDriveFileId}`
+    : captureMetadata.thumbnailUrl
+}
+
+function parseByteSize(size?: string | null) {
+  if (!size) return undefined
+  const value = Number(size)
+  return Number.isSafeInteger(value) && value >= 0 ? value : undefined
 }
 
 function parseCaptureMetadata(description?: string | null): CaptureMetadata {
@@ -153,6 +183,12 @@ function parseDurationSeconds(durationMillis?: string | null) {
   const duration = Number(durationMillis)
 
   return Number.isFinite(duration) ? Math.round(duration / 1000) : undefined
+}
+
+function normalizeDurationSeconds(duration?: number) {
+  return duration !== undefined && Number.isFinite(duration)
+    ? Math.round(duration)
+    : undefined
 }
 
 function getSourceLabel(sourceUrl: string) {

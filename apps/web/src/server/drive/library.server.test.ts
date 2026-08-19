@@ -44,6 +44,51 @@ describe("mapDriveFileToLibraryItem", () => {
       )
     ).toBeNull()
   })
+
+  it("maps an uploaded video and its durable poster", () => {
+    expect(
+      mapDriveFileToLibraryItem(
+        {
+          appProperties: { stillroomKind: "video", stillroomType: "item" },
+          createdTime: "2026-08-15T09:00:00.000Z",
+          description: JSON.stringify({
+            durationSeconds: 8.4,
+            posterDriveFileId: "poster-id",
+            sourceUrl: "https://example.com/interaction.mp4",
+            storageMode: "binary",
+            title: "Interaction",
+          }),
+          id: "video-id",
+          mimeType: "video/mp4",
+          name: "interaction.mp4",
+          size: "2048",
+          videoMediaMetadata: { height: 720, width: 1280 },
+        },
+        "folder-id"
+      )
+    ).toMatchObject({
+      byteSize: 2048,
+      kind: "video",
+      mimeType: "video/mp4",
+      storageMode: "binary",
+      thumbnailUrl: "/api/media/poster-id",
+    })
+  })
+
+  it("does not expose poster assets as library items", () => {
+    expect(
+      mapDriveFileToLibraryItem(
+        {
+          appProperties: { stillroomType: "poster" },
+          createdTime: "2026-08-15T09:00:00.000Z",
+          id: "poster-id",
+          mimeType: "image/jpeg",
+          name: "poster.jpg",
+        },
+        "folder-id"
+      )
+    ).toBeNull()
+  })
 })
 
 describe("buildDriveLibrarySnapshot", () => {
