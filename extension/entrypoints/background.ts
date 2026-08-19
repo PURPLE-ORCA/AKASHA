@@ -43,8 +43,10 @@ export default defineBackground(() => {
       return
     }
 
-    const descriptor =
-      info.mediaType === "video" ? await getMediaDescriptor(tab?.id, info.frameId) : null
+    // Sites such as X put an image or transparent control layer over the video.
+    // Chrome then reports the context-menu target as an image even though the
+    // user is saving the underlying video, so always ask the page observer.
+    const descriptor = await getMediaDescriptor(tab?.id, info.frameId)
     const draft = createCaptureDraft(descriptor ? { ...info, ...descriptor } : info, tab?.title)
 
     if (!draft) {
@@ -81,15 +83,23 @@ export default defineBackground(() => {
 async function getMediaDescriptor(tabId?: number, frameId?: number) {
   if (!tabId) return null
 
+  const message: GetMediaDescriptorMessage = {
+    type: "akasha:get-media-descriptor",
+  }
+  const options = frameId === undefined ? undefined : { frameId }
+
   try {
-    const message: GetMediaDescriptorMessage = {
-      type: "akasha:get-media-descriptor",
-    }
-    return (await browser.tabs.sendMessage(tabId, message, {
-      frameId,
-    })) as MediaDescriptor | null
+    return (await browser.tabs.sendMessage(tabId, message, options)) as MediaDescriptor | null
   } catch {
-    return null
+    try {
+      await browser.scripting.executeScript({
+        files: ["/content-scripts/media-observer.js"],
+        target: frameId === undefined ? { tabId } : { frameIds: [frameId], tabId },
+      })
+      return (await browser.tabs.sendMessage(tabId, message, options)) as MediaDescriptor | null
+    } catch {
+      return null
+    }
   }
 }
 
@@ -98,13 +108,43 @@ async function openCapturePanel(tabId?: number) {
 
   try {
     const message: OpenCapturePanelMessage = { type: "akasha:open-capture" }
-    await browser.tabs.sendMessage(tabId, message)
+    await sendOpenCaptureMessage(tabId, message)
   } catch {
-    await showCaptureNotification(
-      "Open a webpage",
-      "Akasha Capture is available on regular webpages."
-    )
+    try {
+      // Manifest content scripts are not added retroactively to tabs that were
+      // already open when an unpacked extension was installed or reloaded.
+      await browser.scripting.executeScript({
+        files: ["/content-scripts/akasha.js"],
+        target: { tabId },
+      })
+      const message: OpenCapturePanelMessage = { type: "akasha:open-capture" }
+      await sendOpenCaptureMessage(tabId, message, 5)
+    } catch {
+      await showCaptureNotification(
+        "Open a webpage",
+        "Akasha Capture is available on regular webpages."
+      )
+    }
   }
+}
+
+async function sendOpenCaptureMessage(
+  tabId: number,
+  message: OpenCapturePanelMessage,
+  attempts = 1
+) {
+  let lastError: unknown
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      return await browser.tabs.sendMessage(tabId, message)
+    } catch (error) {
+      lastError = error
+      if (attempt < attempts - 1) await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+  }
+
+  throw lastError
 }
 
 async function handleExtensionRequest(
