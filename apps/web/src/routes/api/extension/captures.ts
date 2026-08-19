@@ -39,7 +39,9 @@ export const Route = createFileRoute("/api/extension/captures")({
         const authenticationMs = performance.now() - authenticationStartedAt
 
         const requestInput = await parseCaptureRequest(request)
-        const captureResult = captureRequestSchema.safeParse(requestInput?.capture)
+        const captureResult = captureRequestSchema.safeParse(
+          requestInput?.capture
+        )
 
         if (!captureResult.success) {
           return Response.json(
@@ -61,12 +63,23 @@ export const Route = createFileRoute("/api/extension/captures")({
             attempt: capture.attempt,
             captureId: capture.captureId,
           }
-          const result = await saveCapture(credentials, capture, capture.folderId, options)
+          const result = await saveCapture(
+            credentials,
+            capture,
+            capture.folderId,
+            options
+          )
           headers.set(
             "Server-Timing",
             createCaptureServerTiming(authenticationMs, result.timings)
           )
-          return Response.json({ file: result.file }, { headers, status: 201 })
+          return Response.json(
+            { file: result.file, outcome: result.outcome },
+            {
+              headers,
+              status: result.outcome === "saved" ? 201 : 200,
+            }
+          )
         } catch (error) {
           const status = getCaptureErrorStatus(error)
           return Response.json(
@@ -108,6 +121,7 @@ async function parseCaptureRequest(request: Request) {
 function createCaptureServerTiming(
   authenticationMs: number,
   timings: {
+    dedupeMs: number
     driveUploadMs: number
     idempotencyMs: number
     sourceResponseMs: number
@@ -117,6 +131,7 @@ function createCaptureServerTiming(
     `auth;dur=${authenticationMs.toFixed(1)}`,
     `source;dur=${timings.sourceResponseMs.toFixed(1)}`,
     `idempotency;dur=${timings.idempotencyMs.toFixed(1)}`,
+    `dedupe;dur=${timings.dedupeMs.toFixed(1)}`,
     `drive;dur=${timings.driveUploadMs.toFixed(1)}`,
   ].join(", ")
 }

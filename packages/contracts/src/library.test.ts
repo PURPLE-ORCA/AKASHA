@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { captureRequestSchema } from "./library"
+import { captureOutcomeSchema, captureRequestSchema } from "./library"
 
 describe("captureRequestSchema", () => {
   it("accepts a stable capture id and defaults the first attempt", () => {
@@ -38,5 +38,12 @@ describe("captureRequestSchema", () => {
       storageMode: "binary",
       durationSeconds: 12.4,
     })
+  })
+})
+
+describe("captureOutcomeSchema", () => {
+  it("distinguishes new captures from existing library items", () => {
+    expect(captureOutcomeSchema.parse("saved")).toBe("saved")
+    expect(captureOutcomeSchema.parse("already_saved")).toBe("already_saved")
   })
 })

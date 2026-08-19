@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiAuthGoogleRouteImport } from './routes/api/auth/google'
 import { Route as ApiExtensionAuthRouteImport } from './routes/api/extension/auth'
 import { Route as ApiExtensionCapturesRouteImport } from './routes/api/extension/captures'
+import { Route as ApiExtensionDedupeRouteImport } from './routes/api/extension/dedupe'
 import { Route as ApiExtensionFoldersRouteImport } from './routes/api/extension/folders'
 import { Route as ApiMediaFileIdRouteImport } from './routes/api/media/$fileId'
 import { Route as ApiAuthGoogleCallbackRouteImport } from './routes/api/auth/google.callback'
@@ -37,6 +38,11 @@ const ApiExtensionCapturesRoute = ApiExtensionCapturesRouteImport.update({
   path: '/api/extension/captures',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiExtensionDedupeRoute = ApiExtensionDedupeRouteImport.update({
+  id: '/api/extension/dedupe',
+  path: '/api/extension/dedupe',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiExtensionFoldersRoute = ApiExtensionFoldersRouteImport.update({
   id: '/api/extension/folders',
   path: '/api/extension/folders',
@@ -58,6 +64,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/google': typeof ApiAuthGoogleRouteWithChildren
   '/api/extension/auth': typeof ApiExtensionAuthRoute
   '/api/extension/captures': typeof ApiExtensionCapturesRoute
+  '/api/extension/dedupe': typeof ApiExtensionDedupeRoute
   '/api/extension/folders': typeof ApiExtensionFoldersRoute
   '/api/media/$fileId': typeof ApiMediaFileIdRoute
   '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
@@ -67,6 +74,7 @@ export interface FileRoutesByTo {
   '/api/auth/google': typeof ApiAuthGoogleRouteWithChildren
   '/api/extension/auth': typeof ApiExtensionAuthRoute
   '/api/extension/captures': typeof ApiExtensionCapturesRoute
+  '/api/extension/dedupe': typeof ApiExtensionDedupeRoute
   '/api/extension/folders': typeof ApiExtensionFoldersRoute
   '/api/media/$fileId': typeof ApiMediaFileIdRoute
   '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
@@ -77,6 +85,7 @@ export interface FileRoutesById {
   '/api/auth/google': typeof ApiAuthGoogleRouteWithChildren
   '/api/extension/auth': typeof ApiExtensionAuthRoute
   '/api/extension/captures': typeof ApiExtensionCapturesRoute
+  '/api/extension/dedupe': typeof ApiExtensionDedupeRoute
   '/api/extension/folders': typeof ApiExtensionFoldersRoute
   '/api/media/$fileId': typeof ApiMediaFileIdRoute
   '/api/auth/google/callback': typeof ApiAuthGoogleCallbackRoute
@@ -88,6 +97,7 @@ export interface FileRouteTypes {
     | '/api/auth/google'
     | '/api/extension/auth'
     | '/api/extension/captures'
+    | '/api/extension/dedupe'
     | '/api/extension/folders'
     | '/api/media/$fileId'
     | '/api/auth/google/callback'
@@ -97,6 +107,7 @@ export interface FileRouteTypes {
     | '/api/auth/google'
     | '/api/extension/auth'
     | '/api/extension/captures'
+    | '/api/extension/dedupe'
     | '/api/extension/folders'
     | '/api/media/$fileId'
     | '/api/auth/google/callback'
@@ -106,6 +117,7 @@ export interface FileRouteTypes {
     | '/api/auth/google'
     | '/api/extension/auth'
     | '/api/extension/captures'
+    | '/api/extension/dedupe'
     | '/api/extension/folders'
     | '/api/media/$fileId'
     | '/api/auth/google/callback'
@@ -116,6 +128,7 @@ export interface RootRouteChildren {
   ApiAuthGoogleRoute: typeof ApiAuthGoogleRouteWithChildren
   ApiExtensionAuthRoute: typeof ApiExtensionAuthRoute
   ApiExtensionCapturesRoute: typeof ApiExtensionCapturesRoute
+  ApiExtensionDedupeRoute: typeof ApiExtensionDedupeRoute
   ApiExtensionFoldersRoute: typeof ApiExtensionFoldersRoute
   ApiMediaFileIdRoute: typeof ApiMediaFileIdRoute
 }
@@ -148,6 +161,13 @@ declare module '@tanstack/react-router' {
       path: '/api/extension/captures'
       fullPath: '/api/extension/captures'
       preLoaderRoute: typeof ApiExtensionCapturesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/extension/dedupe': {
+      id: '/api/extension/dedupe'
+      path: '/api/extension/dedupe'
+      fullPath: '/api/extension/dedupe'
+      preLoaderRoute: typeof ApiExtensionDedupeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/extension/folders': {
@@ -191,6 +211,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthGoogleRoute: ApiAuthGoogleRouteWithChildren,
   ApiExtensionAuthRoute: ApiExtensionAuthRoute,
   ApiExtensionCapturesRoute: ApiExtensionCapturesRoute,
+  ApiExtensionDedupeRoute: ApiExtensionDedupeRoute,
   ApiExtensionFoldersRoute: ApiExtensionFoldersRoute,
   ApiMediaFileIdRoute: ApiMediaFileIdRoute,
 }

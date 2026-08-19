@@ -2,12 +2,20 @@ import { isIP } from "node:net"
 import { lookup } from "node:dns/promises"
 import { Readable, Transform } from "node:stream"
 import type { ReadableStream as NodeReadableStream } from "node:stream/web"
-import type { CaptureDraft } from "@akasha/contracts"
+import type { CaptureDraft, CaptureOutcome } from "@akasha/contracts"
 import { google } from "googleapis"
 import type { drive_v3 } from "googleapis"
 
 import type { GoogleTokenCredentials } from "../auth/google-oauth.server"
 import { createGoogleOAuthClient } from "../auth/google-oauth.server"
+import {
+  buildCapturePropertyQuery,
+  CONTENT_HASH_PROPERTY,
+  createBackfillProperties,
+  createContentHashTransform,
+  createSourceFingerprint,
+  SOURCE_HASH_PROPERTY,
+} from "./capture-dedupe.server"
 import { buildFolderChildrenQuery } from "./drive-query"
 
 const FOLDER_MIME_TYPE = "application/vnd.google-apps.folder"
@@ -32,9 +40,16 @@ export { FOLDER_MIME_TYPE }
 type DriveCredentialInput = GoogleTokenCredentials | string
 
 export type CaptureSaveTimings = {
+  dedupeMs: number
   driveUploadMs: number
   idempotencyMs: number
   sourceResponseMs: number
+}
+
+export type CaptureSaveResult = {
+  file: drive_v3.Schema$File
+  outcome: CaptureOutcome
+  timings: CaptureSaveTimings
 }
 
 export class CaptureSourceError extends Error {
@@ -92,6 +107,50 @@ export async function listFolderChildren(
 export async function listStillroomFiles(refreshToken: string) {
   const drive = createDriveClient(refreshToken)
   return listDriveFiles(drive, "trashed = false")
+}
+
+export async function backfillCaptureDedupeMetadata(
+  credentials: DriveCredentialInput,
+  pageToken?: string
+) {
+  const drive = createDriveClient(credentials)
+  const response = await drive.files.list({
+    fields:
+      "nextPageToken,files(id,mimeType,description,sha256Checksum,appProperties)",
+    pageSize: 100,
+    pageToken,
+    q: "appProperties has { key='stillroomType' and value='item' } and trashed = false",
+    spaces: "drive",
+  })
+  const files = response.data.files ?? []
+  let updatedCount = 0
+
+  await runWithConcurrency(files, 4, async (file) => {
+    if (!file.id) return
+
+    const appProperties = createBackfillProperties(file)
+    const hasNewSourceHash =
+      !file.appProperties?.[SOURCE_HASH_PROPERTY] &&
+      Boolean(appProperties[SOURCE_HASH_PROPERTY])
+    const hasNewContentHash =
+      !file.appProperties?.[CONTENT_HASH_PROPERTY] &&
+      Boolean(appProperties[CONTENT_HASH_PROPERTY])
+
+    if (!hasNewSourceHash && !hasNewContentHash) return
+
+    await drive.files.update({
+      fileId: file.id,
+      fields: "id",
+      requestBody: { appProperties },
+    })
+    updatedCount += 1
+  })
+
+  return {
+    nextPageToken: response.data.nextPageToken ?? undefined,
+    scannedCount: files.length,
+    updatedCount,
+  }
 }
 
 export async function listStillroomFolders(credentials: DriveCredentialInput) {
@@ -208,9 +267,10 @@ export async function saveCapture(
   draft: CaptureDraft,
   folderId: string,
   options: { attempt?: number; captureId?: string } = {}
-) {
+): Promise<CaptureSaveResult> {
   const drive = createDriveClient(credentials)
   const timings: CaptureSaveTimings = {
+    dedupeMs: 0,
     driveUploadMs: 0,
     idempotencyMs: 0,
     sourceResponseMs: 0,
@@ -222,7 +282,23 @@ export async function saveCapture(
     timings.idempotencyMs = performance.now() - idempotencyStartedAt
 
     if (existingCapture) {
-      return { file: existingCapture, timings }
+      return { file: existingCapture, outcome: "saved", timings }
+    }
+  }
+
+  const sourceHash = createSourceFingerprint(draft.sourceUrl)
+  const sourceDuplicate = await findDuplicateByProperty(
+    drive,
+    SOURCE_HASH_PROPERTY,
+    sourceHash,
+    timings
+  )
+
+  if (sourceDuplicate) {
+    return {
+      file: sourceDuplicate,
+      outcome: "already_saved",
+      timings,
     }
   }
 
@@ -276,7 +352,7 @@ export async function saveCapture(
   )
 
   try {
-    const file = await uploadCaptureStream(
+    const result = await uploadCaptureStream(
       drive,
       draft,
       folderId,
@@ -284,9 +360,10 @@ export async function saveCapture(
       mimeType,
       maximumBytes,
       timings,
+      sourceHash,
       options.captureId
     )
-    return { file, timings }
+    return { ...result, timings }
   } finally {
     sourceStream.destroy()
   }
@@ -302,7 +379,7 @@ export async function saveUploadedVideoCapture(
     stream: ReadableStream<Uint8Array>
   },
   options: { attempt?: number; captureId?: string } = {}
-) {
+): Promise<CaptureSaveResult> {
   if (draft.kind !== "video" || draft.storageMode !== "binary") {
     throw new CaptureSourceError("Akasha received an invalid video upload.")
   }
@@ -312,6 +389,7 @@ export async function saveUploadedVideoCapture(
 
   const drive = createDriveClient(credentials)
   const timings: CaptureSaveTimings = {
+    dedupeMs: 0,
     driveUploadMs: 0,
     idempotencyMs: 0,
     sourceResponseMs: 0,
@@ -322,7 +400,25 @@ export async function saveUploadedVideoCapture(
     const existingCapture = await findCaptureById(drive, options.captureId)
     timings.idempotencyMs = performance.now() - idempotencyStartedAt
 
-    if (existingCapture) return { file: existingCapture, timings }
+    if (existingCapture) {
+      return { file: existingCapture, outcome: "saved", timings }
+    }
+  }
+
+  const sourceHash = createSourceFingerprint(draft.sourceUrl)
+  const sourceDuplicate = await findDuplicateByProperty(
+    drive,
+    SOURCE_HASH_PROPERTY,
+    sourceHash,
+    timings
+  )
+
+  if (sourceDuplicate) {
+    return {
+      file: sourceDuplicate,
+      outcome: "already_saved",
+      timings,
+    }
   }
 
   const mimeType = normalizeMediaMimeType(upload.mimeType, "video")
@@ -331,7 +427,7 @@ export async function saveUploadedVideoCapture(
   )
 
   try {
-    const file = await uploadCaptureStream(
+    const result = await uploadCaptureStream(
       drive,
       draft,
       folderId,
@@ -339,9 +435,10 @@ export async function saveUploadedVideoCapture(
       mimeType,
       MAXIMUM_VIDEO_BYTES,
       timings,
+      sourceHash,
       options.captureId
     )
-    return { file, timings }
+    return { ...result, timings }
   } finally {
     sourceStream.destroy()
   }
@@ -355,6 +452,7 @@ async function uploadCaptureStream(
   mimeType: string,
   maximumBytes: number,
   timings: CaptureSaveTimings,
+  sourceHash: string,
   captureId?: string
 ) {
   const limitedStream = sourceStream.pipe(
@@ -362,17 +460,62 @@ async function uploadCaptureStream(
       ? createVideoValidationTransform(mimeType, maximumBytes)
       : createSizeLimitTransform(maximumBytes)
   )
+  const contentHash = createContentHashTransform()
   const driveUploadStartedAt = performance.now()
   const response = await drive.files.create(
     {
-      fields: "id,name,mimeType,parents,thumbnailLink,appProperties,createdTime",
-      media: { body: limitedStream, mimeType },
-      requestBody: createCaptureMetadata(draft, folderId, mimeType, captureId),
+      fields:
+        "id,name,mimeType,parents,thumbnailLink,appProperties,createdTime",
+      media: { body: limitedStream.pipe(contentHash.stream), mimeType },
+      requestBody: createCaptureMetadata(
+        draft,
+        folderId,
+        mimeType,
+        sourceHash,
+        captureId
+      ),
     },
     { timeout: 60_000 }
   )
   timings.driveUploadMs = performance.now() - driveUploadStartedAt
   let file = response.data
+
+  if (!file.id) {
+    throw new Error("Akasha could not identify the saved capture.")
+  }
+
+  const duplicate = await findDuplicateByProperty(
+    drive,
+    CONTENT_HASH_PROPERTY,
+    contentHash.digest(),
+    timings
+  )
+
+  if (duplicate) {
+    const dedupeStartedAt = performance.now()
+    await drive.files.update({
+      fileId: file.id,
+      fields: "id,trashed",
+      requestBody: { trashed: true },
+    })
+    timings.dedupeMs += performance.now() - dedupeStartedAt
+    return { file: duplicate, outcome: "already_saved" as const }
+  }
+
+  const dedupeStartedAt = performance.now()
+  const fingerprinted = await drive.files.update({
+    fileId: file.id,
+    fields:
+      "id,name,mimeType,size,parents,thumbnailLink,appProperties,createdTime",
+    requestBody: {
+      appProperties: {
+        ...file.appProperties,
+        [CONTENT_HASH_PROPERTY]: contentHash.digest(),
+      },
+    },
+  })
+  timings.dedupeMs += performance.now() - dedupeStartedAt
+  file = fingerprinted.data
 
   if (draft.kind === "video" && file.id && draft.thumbnailUrl) {
     const posterDriveFileId = await saveVideoPoster(
@@ -386,7 +529,8 @@ async function uploadCaptureStream(
     if (posterDriveFileId) {
       const updated = await drive.files.update({
         fileId: file.id,
-        fields: "id,name,mimeType,size,parents,thumbnailLink,appProperties,createdTime",
+        fields:
+          "id,name,mimeType,size,parents,thumbnailLink,appProperties,createdTime",
         requestBody: {
           description: createCaptureDescription(draft, posterDriveFileId),
         },
@@ -395,13 +539,14 @@ async function uploadCaptureStream(
     }
   }
 
-  return file
+  return { file, outcome: "saved" as const }
 }
 
 function createCaptureMetadata(
   draft: CaptureDraft,
   folderId: string,
   mimeType: string,
+  sourceHash: string,
   captureId?: string
 ) {
   const extension =
@@ -411,6 +556,7 @@ function createCaptureMetadata(
   return {
     appProperties: {
       ...(captureId ? { akashaCaptureId: captureId } : {}),
+      [SOURCE_HASH_PROPERTY]: sourceHash,
       stillroomKind: draft.kind,
       stillroomType: "item",
     },
@@ -593,6 +739,43 @@ async function findCaptureById(drive: drive_v3.Drive, captureId: string) {
   })
 
   return response.data.files?.[0]
+}
+
+async function findDuplicateByProperty(
+  drive: drive_v3.Drive,
+  property: string,
+  value: string,
+  timings: CaptureSaveTimings
+) {
+  const dedupeStartedAt = performance.now()
+  const response = await drive.files.list({
+    fields:
+      "files(id,name,mimeType,size,parents,thumbnailLink,appProperties,createdTime)",
+    pageSize: 1,
+    q: buildCapturePropertyQuery(property, value),
+    spaces: "drive",
+  })
+  timings.dedupeMs += performance.now() - dedupeStartedAt
+
+  return response.data.files?.[0]
+}
+
+async function runWithConcurrency<T>(
+  values: T[],
+  concurrency: number,
+  operation: (value: T) => Promise<void>
+) {
+  let nextIndex = 0
+
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, values.length) }, async () => {
+      while (nextIndex < values.length) {
+        const value = values[nextIndex]
+        nextIndex += 1
+        if (value !== undefined) await operation(value)
+      }
+    })
+  )
 }
 
 function normalizeDriveCredentials(

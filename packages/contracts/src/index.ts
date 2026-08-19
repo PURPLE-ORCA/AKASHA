@@ -2,6 +2,7 @@ export type { FolderTreeNode } from "./folders"
 export { buildFolderTree, getFolderPath } from "./folders"
 export type {
   CaptureDraft,
+  CaptureOutcome,
   CaptureRequest,
   LibraryFolder,
   LibraryItem,
@@ -10,6 +11,7 @@ export type {
 } from "./library"
 export {
   captureDraftSchema,
+  captureOutcomeSchema,
   captureRequestSchema,
   libraryFolderSchema,
   libraryItemSchema,

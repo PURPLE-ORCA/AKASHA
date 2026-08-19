@@ -2,6 +2,7 @@ import { z } from "zod"
 
 export const mediaKindSchema = z.enum(["image", "video"])
 export const mediaStorageSchema = z.enum(["binary", "reference"])
+export const captureOutcomeSchema = z.enum(["saved", "already_saved"])
 
 export const captureDraftSchema = z.object({
   kind: mediaKindSchema,
@@ -46,6 +47,7 @@ export const captureRequestSchema = captureDraftSchema.extend({
 })
 
 export type CaptureDraft = z.infer<typeof captureDraftSchema>
+export type CaptureOutcome = z.infer<typeof captureOutcomeSchema>
 export type CaptureRequest = z.infer<typeof captureRequestSchema>
 export type LibraryFolder = z.infer<typeof libraryFolderSchema>
 export type LibraryItem = z.infer<typeof libraryItemSchema>
