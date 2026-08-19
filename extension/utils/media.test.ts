@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { findLargestVisibleMedia, findSmallestMediaAtPoint } from "./media"
+import { findLargestVisibleMedia, findSmallestMediaAtPoint, getMediaActionPosition } from "./media"
 
 function media(left: number, top: number, width: number, height: number) {
   return {
@@ -44,5 +44,31 @@ describe("findLargestVisibleMedia", () => {
 
   it("ignores videos outside the viewport", () => {
     expect(findLargestVisibleMedia([media(2_000, 0, 640, 360)], 1_200, 800)).toBeUndefined()
+  })
+})
+
+describe("getMediaActionPosition", () => {
+  it("places the action inside the video's top-right corner", () => {
+    expect(
+      getMediaActionPosition(media(100, 50, 640, 360).getBoundingClientRect(), {
+        actionHeight: 36,
+        actionWidth: 132,
+        inset: 12,
+        viewportHeight: 800,
+        viewportWidth: 1_200,
+      })
+    ).toEqual({ left: 596, top: 62 })
+  })
+
+  it("keeps the action inside the viewport when the video is clipped", () => {
+    expect(
+      getMediaActionPosition(media(1_100, -30, 300, 200).getBoundingClientRect(), {
+        actionHeight: 36,
+        actionWidth: 132,
+        inset: 12,
+        viewportHeight: 800,
+        viewportWidth: 1_200,
+      })
+    ).toEqual({ left: 1_056, top: 12 })
   })
 })

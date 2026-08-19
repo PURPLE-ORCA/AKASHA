@@ -62,7 +62,11 @@ export default defineBackground(() => {
     await openCapturePanel(tab?.id)
   })
 
-  browser.action.onClicked.addListener((tab) => openCapturePanel(tab.id))
+  browser.action.onClicked.addListener((tab) => {
+    void captureVisibleVideo(tab).catch(() =>
+      showCaptureNotification("Could not capture this video", "Open the video post and try again.")
+    )
+  })
   browser.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === OUTBOX_ALARM_NAME) void processOutbox()
   })
@@ -73,8 +77,8 @@ export default defineBackground(() => {
     }
   })
 
-  browser.runtime.onMessage.addListener((message: ExtensionRequest) =>
-    handleExtensionRequest(message)
+  browser.runtime.onMessage.addListener((message: ExtensionRequest, sender) =>
+    handleExtensionRequest(message, sender)
   )
 
   void processOutbox()
@@ -128,6 +132,37 @@ async function openCapturePanel(tabId?: number) {
   }
 }
 
+async function captureVisibleVideo(tab: Browser.tabs.Tab) {
+  const descriptor = await getMediaDescriptor(tab.id, 0)
+
+  if (descriptor && tab.url) {
+    await storeVideoDraftAndOpen(descriptor, tab)
+    return
+  }
+
+  await openCapturePanel(tab.id)
+}
+
+async function storeVideoDraftAndOpen(
+  descriptor: MediaDescriptor,
+  tab: Pick<Browser.tabs.Tab, "id" | "title" | "url">
+) {
+  if (!tab.url) throw new Error("Akasha could not identify this page.")
+
+  const draft = createCaptureDraft(
+    {
+      pageUrl: tab.url,
+      ...descriptor,
+    },
+    tab.title
+  )
+
+  if (!draft) throw new Error("Akasha could not capture this video.")
+
+  await withStorageMutation(() => captureDraftStorage.setValue(draft))
+  await openCapturePanel(tab.id)
+}
+
 async function sendOpenCaptureMessage(
   tabId: number,
   message: OpenCapturePanelMessage,
@@ -148,7 +183,8 @@ async function sendOpenCaptureMessage(
 }
 
 async function handleExtensionRequest(
-  message: ExtensionRequest
+  message: ExtensionRequest,
+  sender?: Browser.runtime.MessageSender
 ): Promise<ExtensionResponse<unknown>> {
   try {
     if (message.type === "akasha:connect") {
@@ -159,6 +195,11 @@ async function handleExtensionRequest(
 
     if (message.type === "akasha:list-folders") {
       return { ok: true, value: await getFolderOptions() }
+    }
+
+    if (message.type === "akasha:capture-video") {
+      await storeVideoDraftAndOpen(message.descriptor, sender?.tab ?? {})
+      return { ok: true, value: null }
     }
 
     if (message.type === "akasha:save") {

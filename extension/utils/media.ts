@@ -11,6 +11,14 @@ type RectSource = {
   getBoundingClientRect(): Rect
 }
 
+type MediaActionPositionOptions = {
+  actionHeight: number
+  actionWidth: number
+  inset: number
+  viewportHeight: number
+  viewportWidth: number
+}
+
 export function findSmallestMediaAtPoint<T extends RectSource>(
   media: T[],
   clientX: number,
@@ -52,4 +60,23 @@ export function findLargestVisibleMedia<T extends RectSource>(
     })
     .filter(({ visibleArea }) => visibleArea > 0)
     .sort((left, right) => right.visibleArea - left.visibleArea)[0]?.item
+}
+
+export function getMediaActionPosition(rect: Rect, options: MediaActionPositionOptions) {
+  const maximumLeft = Math.max(
+    options.inset,
+    options.viewportWidth - options.actionWidth - options.inset
+  )
+  const maximumTop = Math.max(
+    options.inset,
+    options.viewportHeight - options.actionHeight - options.inset
+  )
+
+  return {
+    left: Math.min(
+      Math.max(rect.right - options.actionWidth - options.inset, options.inset),
+      maximumLeft
+    ),
+    top: Math.min(Math.max(rect.top + options.inset, options.inset), maximumTop),
+  }
 }

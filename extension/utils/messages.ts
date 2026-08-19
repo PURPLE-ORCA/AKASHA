@@ -5,6 +5,10 @@ export type ExtensionRequest =
   | { type: "akasha:connect" }
   | { type: "akasha:list-folders" }
   | {
+      type: "akasha:capture-video"
+      descriptor: MediaDescriptor
+    }
+  | {
       type: "akasha:save"
       draft: CaptureDraft
       folderId: string
