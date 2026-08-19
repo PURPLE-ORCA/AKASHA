@@ -37,6 +37,7 @@ function createItem(
     folderId,
     id,
     kind,
+    storageMode: "binary",
     sourceLabel: "example.com",
     sourceUrl: `https://example.com/${id}`,
     thumbnailUrl: `/api/media/drive-${id}`,
@@ -45,7 +46,7 @@ function createItem(
 }
 
 describe("getFolderPreviews", () => {
-  it("collects at most three images from a folder and its descendants", () => {
+  it("collects at most three media previews from a folder and its descendants", () => {
     const previews = getFolderPreviews(folders, [
       createItem("parent-image", "parent"),
       createItem("child-image-one", "child"),
@@ -57,7 +58,7 @@ describe("getFolderPreviews", () => {
     expect(previews.get("parent")?.map((item) => item.id)).toEqual([
       "parent-image",
       "child-image-one",
-      "child-image-two",
+      "child-video",
     ])
   })
 

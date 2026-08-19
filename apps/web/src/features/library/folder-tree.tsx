@@ -97,7 +97,7 @@ export function getFolderPreviews(
   items: LibraryItem[]
 ) {
   const childrenByFolder = new Map<string, string[]>()
-  const imagesByFolder = new Map<string, LibraryItem[]>()
+  const mediaByFolder = new Map<string, LibraryItem[]>()
 
   for (const folder of folders) {
     if (!folder.parentId) continue
@@ -107,10 +107,10 @@ export function getFolderPreviews(
   }
 
   for (const item of items) {
-    if (item.kind !== "image" || !item.thumbnailUrl) continue
-    const images = imagesByFolder.get(item.folderId) ?? []
-    images.push(item)
-    imagesByFolder.set(item.folderId, images)
+    if (!item.thumbnailUrl) continue
+    const media = mediaByFolder.get(item.folderId) ?? []
+    media.push(item)
+    mediaByFolder.set(item.folderId, media)
   }
 
   return new Map(
@@ -119,7 +119,7 @@ export function getFolderPreviews(
       collectFolderPreviews(
         folder.id,
         childrenByFolder,
-        imagesByFolder,
+        mediaByFolder,
         new Set()
       ),
     ])
@@ -129,13 +129,13 @@ export function getFolderPreviews(
 function collectFolderPreviews(
   folderId: string,
   childrenByFolder: Map<string, string[]>,
-  imagesByFolder: Map<string, LibraryItem[]>,
+  mediaByFolder: Map<string, LibraryItem[]>,
   visited: Set<string>
 ): LibraryItem[] {
   if (visited.has(folderId)) return []
   visited.add(folderId)
 
-  const previews = (imagesByFolder.get(folderId) ?? []).slice(
+  const previews = (mediaByFolder.get(folderId) ?? []).slice(
     0,
     maximumFolderPreviews
   )
@@ -146,7 +146,7 @@ function collectFolderPreviews(
       ...collectFolderPreviews(
         childId,
         childrenByFolder,
-        imagesByFolder,
+        mediaByFolder,
         visited
       ).slice(0, maximumFolderPreviews - previews.length)
     )

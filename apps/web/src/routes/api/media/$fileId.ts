@@ -2,11 +2,15 @@ import { createFileRoute } from "@tanstack/react-router"
 
 import { getGoogleAccessToken } from "@/server/auth/google-oauth.server"
 import { useStillroomSession } from "@/server/auth/session.server"
+import {
+  createDriveMediaRequestHeaders,
+  createMediaProxyResponse,
+} from "@/server/drive/media-proxy.server"
 
 export const Route = createFileRoute("/api/media/$fileId")({
   server: {
     handlers: {
-      GET: async ({ params }) => {
+      GET: async ({ params, request }) => {
         if (!process.env.SESSION_SECRET) {
           return new Response("Library access is not available.", {
             status: 401,
@@ -44,33 +48,22 @@ export const Route = createFileRoute("/api/media/$fileId")({
 
         const driveResponse = await fetch(
           `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(params.fileId)}?alt=media`,
-          { headers: { Authorization: `Bearer ${credentials.accessToken}` } }
+          {
+            headers: createDriveMediaRequestHeaders(
+              request.headers,
+              credentials.accessToken
+            ),
+          }
         )
 
-        if (!driveResponse.ok || !driveResponse.body) {
+        if (!driveResponse.ok && ![304, 416].includes(driveResponse.status)) {
           return new Response("Media could not be loaded.", {
             status: driveResponse.status,
           })
         }
 
-        const responseHeaders = new Headers({
-          "Cache-Control": "private, max-age=300, stale-while-revalidate=3600",
-          "Content-Type":
-            driveResponse.headers.get("Content-Type") ??
-            "application/octet-stream",
-          Vary: "Cookie, Authorization",
-        })
-        copyHeader(driveResponse.headers, responseHeaders, "Content-Length")
-        copyHeader(driveResponse.headers, responseHeaders, "ETag")
-        copyHeader(driveResponse.headers, responseHeaders, "Last-Modified")
-
-        return new Response(driveResponse.body, { headers: responseHeaders })
+        return createMediaProxyResponse(driveResponse)
       },
     },
   },
 })
-
-function copyHeader(source: Headers, destination: Headers, name: string) {
-  const value = source.get(name)
-  if (value) destination.set(name, value)
-}

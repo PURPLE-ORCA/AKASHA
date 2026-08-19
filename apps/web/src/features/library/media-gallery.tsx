@@ -6,6 +6,7 @@ import {
   FolderSimpleIcon,
   MinusIcon,
   PlusIcon,
+  PlayIcon,
   TrashIcon,
 } from "@phosphor-icons/react"
 import { Button, Label, Modal, Typography } from "@heroui/react"
@@ -27,10 +28,7 @@ export function MediaGallery({
   onMoveItem,
   onRemoveItem,
 }: MediaGalleryProps) {
-  const displayItems = useMemo(
-    () => items.filter((item) => Boolean(item.thumbnailUrl)),
-    [items]
-  )
+  const displayItems = useMemo(() => items, [items])
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
   const [visibleCount, setVisibleCount] = useState(INITIAL_RENDER_COUNT)
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
@@ -60,14 +58,14 @@ export function MediaGallery({
   if (displayItems.length === 0) {
     return (
       <div className="gallery-empty">
-        <Typography color="muted">No images here yet.</Typography>
+        <Typography color="muted">No media here yet.</Typography>
       </div>
     )
   }
 
   return (
     <>
-      <div aria-label="Saved images" className="media-grid">
+      <div aria-label="Saved media" className="media-grid">
         {displayItems.slice(0, visibleCount).map((item, index) => (
           <MediaCard
             item={item}
@@ -86,7 +84,7 @@ export function MediaGallery({
           ref={loadMoreRef}
         />
       ) : null}
-      <ImageLightbox
+      <MediaLightbox
         activeIndex={activeIndex}
         items={displayItems}
         onActiveIndexChange={setActiveIndex}
@@ -120,14 +118,34 @@ function MediaCard({
             onClick={onOpen}
             type="button"
           >
-            <img
-              alt={item.title}
-              fetchPriority={priority ? "high" : "auto"}
-              height={item.height}
-              loading={priority ? "eager" : "lazy"}
-              src={item.thumbnailUrl}
-              width={item.width}
-            />
+            <span
+              className={`media-card__visual media-card__visual--${item.kind}`}
+            >
+              {item.thumbnailUrl ? (
+                <img
+                  alt={item.title}
+                  fetchPriority={priority ? "high" : "auto"}
+                  height={item.height}
+                  loading={priority ? "eager" : "lazy"}
+                  src={item.thumbnailUrl}
+                  width={item.width}
+                />
+              ) : (
+                <span aria-hidden="true" className="media-card__placeholder">
+                  <PlayIcon weight="fill" />
+                </span>
+              )}
+              {item.kind === "video" && item.thumbnailUrl ? (
+                <span aria-hidden="true" className="media-card__play">
+                  <PlayIcon weight="fill" />
+                </span>
+              ) : null}
+              {item.kind === "video" && item.durationSeconds !== undefined ? (
+                <span className="media-card__duration">
+                  {formatDuration(item.durationSeconds)}
+                </span>
+              ) : null}
+            </span>
           </button>
         </div>
       </ContextMenu.Trigger>
@@ -154,17 +172,17 @@ function MediaCard({
   )
 }
 
-type ImageLightboxProps = {
+type MediaLightboxProps = {
   activeIndex: number | null
   items: LibraryItem[]
   onActiveIndexChange: (index: number | null) => void
 }
 
-function ImageLightbox({
+function MediaLightbox({
   activeIndex,
   items,
   onActiveIndexChange,
-}: ImageLightboxProps) {
+}: MediaLightboxProps) {
   const [scale, setScale] = useState(1)
   const currentIndex = activeIndex ?? 0
   const activeItem = activeIndex === null ? null : items[activeIndex]
@@ -201,13 +219,13 @@ function ImageLightbox({
       }}
     >
       <Modal.Container size="full">
-        <Modal.Dialog aria-label={activeItem?.title ?? "Image preview"}>
+        <Modal.Dialog aria-label={activeItem?.title ?? "Media preview"}>
           <Modal.CloseTrigger />
           {activeItem ? (
             <div className="lightbox">
               <div className="lightbox__toolbar">
                 <Button
-                  aria-label="Previous image"
+                  aria-label="Previous media"
                   isDisabled={!canGoBack}
                   isIconOnly
                   variant="tertiary"
@@ -217,38 +235,42 @@ function ImageLightbox({
                 >
                   <ArrowLeftIcon aria-hidden="true" />
                 </Button>
+                {activeItem.kind === "image" ? (
+                  <>
+                    <Button
+                      aria-label="Zoom out"
+                      isDisabled={scale <= 1}
+                      isIconOnly
+                      variant="tertiary"
+                      onPress={() =>
+                        setScale((current) => Math.max(1, current - 0.25))
+                      }
+                    >
+                      <MinusIcon aria-hidden="true" />
+                    </Button>
+                    <Button
+                      aria-label="Reset zoom"
+                      isIconOnly
+                      variant="tertiary"
+                      onPress={() => setScale(1)}
+                    >
+                      <ArrowsInSimpleIcon aria-hidden="true" />
+                    </Button>
+                    <Button
+                      aria-label="Zoom in"
+                      isDisabled={scale >= 3}
+                      isIconOnly
+                      variant="tertiary"
+                      onPress={() =>
+                        setScale((current) => Math.min(3, current + 0.25))
+                      }
+                    >
+                      <PlusIcon aria-hidden="true" />
+                    </Button>
+                  </>
+                ) : null}
                 <Button
-                  aria-label="Zoom out"
-                  isDisabled={scale <= 1}
-                  isIconOnly
-                  variant="tertiary"
-                  onPress={() =>
-                    setScale((current) => Math.max(1, current - 0.25))
-                  }
-                >
-                  <MinusIcon aria-hidden="true" />
-                </Button>
-                <Button
-                  aria-label="Reset zoom"
-                  isIconOnly
-                  variant="tertiary"
-                  onPress={() => setScale(1)}
-                >
-                  <ArrowsInSimpleIcon aria-hidden="true" />
-                </Button>
-                <Button
-                  aria-label="Zoom in"
-                  isDisabled={scale >= 3}
-                  isIconOnly
-                  variant="tertiary"
-                  onPress={() =>
-                    setScale((current) => Math.min(3, current + 0.25))
-                  }
-                >
-                  <PlusIcon aria-hidden="true" />
-                </Button>
-                <Button
-                  aria-label="Next image"
+                  aria-label="Next media"
                   isDisabled={!canGoForward}
                   isIconOnly
                   variant="tertiary"
@@ -262,12 +284,40 @@ function ImageLightbox({
                 </Button>
               </div>
               <div className="lightbox__stage">
-                <img
-                  alt={activeItem.title}
-                  className="lightbox__image"
-                  src={activeItem.thumbnailUrl}
-                  style={{ "--lightbox-scale": scale } as React.CSSProperties}
-                />
+                {activeItem.kind === "video" ? (
+                  activeItem.storageMode !== "reference" ? (
+                    <video
+                      className="lightbox__video"
+                      controls
+                      key={activeItem.id}
+                      playsInline
+                      poster={activeItem.thumbnailUrl}
+                      preload="metadata"
+                      src={`/api/media/${activeItem.driveFileId}`}
+                    />
+                  ) : (
+                    <div className="lightbox__reference">
+                      <PlayIcon aria-hidden="true" weight="fill" />
+                      <Typography color="muted">
+                        This clip is kept as a link to its original source.
+                      </Typography>
+                      <a
+                        href={activeItem.sourceUrl}
+                        rel="noreferrer"
+                        target="_blank"
+                      >
+                        Open original
+                      </a>
+                    </div>
+                  )
+                ) : (
+                  <img
+                    alt={activeItem.title}
+                    className="lightbox__image"
+                    src={activeItem.thumbnailUrl}
+                    style={{ "--lightbox-scale": scale } as React.CSSProperties}
+                  />
+                )}
               </div>
             </div>
           ) : null}
@@ -275,4 +325,11 @@ function ImageLightbox({
       </Modal.Container>
     </Modal.Backdrop>
   )
+}
+
+function formatDuration(durationSeconds: number) {
+  const totalSeconds = Math.max(0, Math.round(durationSeconds))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`
 }
