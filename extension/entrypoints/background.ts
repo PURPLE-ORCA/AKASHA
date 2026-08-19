@@ -1,5 +1,13 @@
-import { AkashaApiError, connectAkasha, listFolderOptions, saveCapture } from "@/utils/akasha-api"
+import {
+  AkashaApiError,
+  backfillDuplicateMetadata,
+  connectAkasha,
+  hasAkashaCredential,
+  listFolderOptions,
+  saveCapture,
+} from "@/utils/akasha-api"
 import { createCaptureDraft } from "@/utils/capture"
+import { createCaptureResultNotification } from "@/utils/capture-result"
 import type { ExtensionRequest, ExtensionResponse, OpenCapturePanelMessage } from "@/utils/messages"
 import {
   type CaptureOutboxJob,
@@ -10,18 +18,21 @@ import {
 import {
   captureDraftStorage,
   captureOutboxStorage,
+  duplicateBackfillStorage,
   folderOptionsCacheStorage,
   selectedFolderStorage,
 } from "@/utils/storage"
 
 const CAPTURE_MENU_ID = "stillroom-capture-media"
 const OUTBOX_ALARM_NAME = "akasha-capture-outbox"
+const DEDUPE_BACKFILL_ALARM_NAME = "akasha-dedupe-backfill"
 const FAILED_NOTIFICATION_PREFIX = "akasha-save-failed:"
 const FOLDER_CACHE_FRESH_MS = 5 * 60 * 1_000
 const CAPTURE_PANEL_FILE = "content-scripts/akasha.js" as ScriptPublicPath
 
 let storageMutation = Promise.resolve()
 let outboxExecution: Promise<void> | null = null
+let dedupeBackfillExecution: Promise<void> | null = null
 let folderRefresh: Promise<Awaited<ReturnType<typeof listFolderOptions>>> | null = null
 
 export default defineBackground(() => {
@@ -52,8 +63,12 @@ export default defineBackground(() => {
   })
   browser.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === OUTBOX_ALARM_NAME) void processOutbox()
+    if (alarm.name === DEDUPE_BACKFILL_ALARM_NAME) void processDedupeBackfill()
   })
-  browser.runtime.onStartup.addListener(() => void processOutbox())
+  browser.runtime.onStartup.addListener(() => {
+    void processOutbox()
+    void processDedupeBackfill()
+  })
   browser.notifications.onClicked.addListener((notificationId) => {
     if (notificationId.startsWith(FAILED_NOTIFICATION_PREFIX)) {
       void restoreFailedCapture(notificationId.slice(FAILED_NOTIFICATION_PREFIX.length))
@@ -65,6 +80,7 @@ export default defineBackground(() => {
   )
 
   void processOutbox()
+  void processDedupeBackfill()
   void ensureCaptureMenu()
 })
 
@@ -138,6 +154,7 @@ async function handleExtensionRequest(
     if (message.type === "akasha:connect") {
       const folders = await connectAkasha()
       await cacheFolderOptions(folders)
+      queueMicrotask(() => void processDedupeBackfill())
       return { ok: true, value: folders }
     }
 
@@ -195,12 +212,10 @@ async function drainOutbox() {
     await scheduleNextOutboxAlarm()
 
     try {
-      await saveCapture(job.draft, job.folderId, job.captureId, job.attempt)
+      const result = await saveCapture(job.draft, job.folderId, job.captureId, job.attempt)
       await removeOutboxJob(job.captureId)
-      await showCaptureNotification(
-        "Saved to Akasha",
-        `${job.draft.title} is now in your library.`
-      ).catch(() => undefined)
+      const notification = createCaptureResultNotification(result.outcome, job.draft.title)
+      await showCaptureNotification(notification.title, notification.message).catch(() => undefined)
     } catch (error) {
       const message = error instanceof Error ? error.message : "Akasha could not save this item."
       const retryable = !(error instanceof AkashaApiError) || error.retryable
@@ -223,6 +238,58 @@ async function drainOutbox() {
   }
 
   await scheduleNextOutboxAlarm()
+}
+
+function processDedupeBackfill() {
+  if (dedupeBackfillExecution) return dedupeBackfillExecution
+
+  dedupeBackfillExecution = backfillNextDedupePage().finally(() => {
+    dedupeBackfillExecution = null
+  })
+  return dedupeBackfillExecution
+}
+
+async function backfillNextDedupePage() {
+  const state = await duplicateBackfillStorage.getValue()
+  if (state.complete) {
+    await browser.alarms.clear(DEDUPE_BACKFILL_ALARM_NAME)
+    return
+  }
+
+  if (!(await hasAkashaCredential())) {
+    await browser.alarms.clear(DEDUPE_BACKFILL_ALARM_NAME)
+    return
+  }
+
+  try {
+    const page = await backfillDuplicateMetadata(state.pageToken)
+
+    if (page.restart) {
+      await duplicateBackfillStorage.setValue({ complete: false, version: 1 })
+      await browser.alarms.create(DEDUPE_BACKFILL_ALARM_NAME, {
+        when: Date.now() + 60_000,
+      })
+      return
+    }
+
+    await duplicateBackfillStorage.setValue({
+      complete: !page.nextPageToken,
+      pageToken: page.nextPageToken,
+      version: 1,
+    })
+
+    if (page.nextPageToken) {
+      await browser.alarms.create(DEDUPE_BACKFILL_ALARM_NAME, {
+        when: Date.now() + 60_000,
+      })
+    } else {
+      await browser.alarms.clear(DEDUPE_BACKFILL_ALARM_NAME)
+    }
+  } catch {
+    await browser.alarms.create(DEDUPE_BACKFILL_ALARM_NAME, {
+      when: Date.now() + 5 * 60_000,
+    })
+  }
 }
 
 async function takeNextReadyJob() {

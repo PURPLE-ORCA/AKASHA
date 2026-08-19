@@ -19,3 +19,11 @@ export const folderOptionsCacheStorage = storage.defineItem<{
   cachedAt: number
   folders: FolderOption[]
 } | null>("local:folder-options-cache", { fallback: null })
+
+export const duplicateBackfillStorage = storage.defineItem<{
+  complete: boolean
+  pageToken?: string
+  version: 1
+}>("local:duplicate-backfill", {
+  fallback: { complete: false, version: 1 },
+})

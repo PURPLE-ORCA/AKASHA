@@ -1,4 +1,4 @@
-import type { CaptureDraft } from "@akasha/contracts"
+import { type CaptureDraft, captureOutcomeSchema } from "@akasha/contracts"
 
 const AUTH_STORAGE_KEY = "akashaDeviceCredential"
 const LEGACY_AUTH_STORAGE_KEY = "stillroomGoogleAuth"
@@ -6,6 +6,13 @@ const LEGACY_AUTH_STORAGE_KEY = "stillroomGoogleAuth"
 export type FolderOption = {
   id: string
   label: string
+}
+
+export type DedupeBackfillPage = {
+  nextPageToken?: string
+  restart?: boolean
+  scannedCount: number
+  updatedCount: number
 }
 
 export async function connectAkasha() {
@@ -40,11 +47,30 @@ export async function saveCapture(
   if (draft.kind !== "image")
     throw new AkashaApiError("Video capture is currently unavailable.", 422)
 
-  await authenticatedRequest("/api/extension/captures", {
+  const response = await authenticatedRequest("/api/extension/captures", {
     body: JSON.stringify({ ...draft, attempt, captureId, folderId }),
     headers: { "Content-Type": "application/json" },
     method: "POST",
   })
+  const body = (await response.json()) as { outcome?: unknown }
+
+  return {
+    outcome: captureOutcomeSchema.parse(body.outcome ?? "saved"),
+  }
+}
+
+export async function backfillDuplicateMetadata(pageToken?: string) {
+  const response = await authenticatedRequest("/api/extension/dedupe", {
+    body: JSON.stringify({ pageToken }),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  })
+
+  return (await response.json()) as DedupeBackfillPage
+}
+
+export async function hasAkashaCredential() {
+  return Boolean(await readCredential())
 }
 
 export function createAkashaAuthorizationUrl(apiUrl: string, redirectUrl: string) {
