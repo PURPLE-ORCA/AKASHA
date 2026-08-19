@@ -40,6 +40,9 @@ export function LibraryPage({
   requestedFolderId,
 }: LibraryPageProps) {
   const [activeTab, setActiveTab] = useState<"all" | "folders">("all")
+  const [mediaFilter, setMediaFilter] = useState<"all" | "image" | "video">(
+    "all"
+  )
   const [commandOpen, setCommandOpen] = useState(false)
   const [createFolderOpen, setCreateFolderOpen] = useState(false)
   const [moveItemId, setMoveItemId] = useState<string | null>(null)
@@ -62,6 +65,13 @@ export function LibraryPage({
         ? items
         : items.filter((item) => item.folderId === selectedFolderId),
     [items, rootFolderId, selectedFolderId]
+  )
+  const filteredItems = useMemo(
+    () =>
+      mediaFilter === "all"
+        ? visibleItems
+        : visibleItems.filter((item) => item.kind === mediaFilter),
+    [mediaFilter, visibleItems]
   )
   const visibleFolders = useMemo(
     () =>
@@ -134,6 +144,12 @@ export function LibraryPage({
             resolveTheme(current) === "dark" ? "light" : "dark"
           )
           break
+        case "f":
+          if (activeTab === "all") {
+            event.preventDefault()
+            setMediaFilter((current) => cycleMediaFilter(current))
+          }
+          break
         case "s":
           event.preventDefault()
           setActiveTab((current) => (current === "all" ? "folders" : "all"))
@@ -143,7 +159,7 @@ export function LibraryPage({
 
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
-  }, [])
+  }, [activeTab])
 
   async function createFolder(name: string) {
     await createLibraryFolder({
@@ -171,6 +187,8 @@ export function LibraryPage({
       <LibraryToolbar
         activeView={activeTab}
         folderPath={folderPath}
+        mediaFilter={mediaFilter}
+        onMediaFilterChange={setMediaFilter}
         onThemeChange={setTheme}
         onViewChange={setActiveTab}
         theme={theme}
@@ -189,7 +207,7 @@ export function LibraryPage({
                   <LibraryEmptyState onCreateFolder={createFolder} />
                 ) : (
                   <MediaGallery
-                    items={visibleItems}
+                    items={filteredItems}
                     onMoveItem={setMoveItemId}
                     onRemoveItem={setRemoveItemId}
                   />
@@ -247,6 +265,12 @@ export function LibraryPage({
       />
     </div>
   )
+}
+
+function cycleMediaFilter(current: "all" | "image" | "video") {
+  if (current === "all") return "image"
+  if (current === "image") return "video"
+  return "all"
 }
 
 function getSelectedFolderId(

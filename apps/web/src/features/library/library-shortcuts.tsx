@@ -35,7 +35,12 @@ export function LibraryShortcuts() {
                 <Kbd.Content>S</Kbd.Content>
               </Kbd>
             </Shortcut>
-            <Shortcut label="Move through folders or images">
+            <Shortcut label="Switch media filter">
+              <Kbd>
+                <Kbd.Content>F</Kbd.Content>
+              </Kbd>
+            </Shortcut>
+            <Shortcut label="Move through folders or media">
               <span className="shortcut-keys">
                 <Kbd>
                   <Kbd.Abbr keyValue="left" />

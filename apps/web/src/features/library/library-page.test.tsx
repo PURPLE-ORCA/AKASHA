@@ -52,7 +52,7 @@ describe("LibraryPage", () => {
     ).toBe("true")
   })
 
-  it("renders connected media as image-only cards", () => {
+  it("renders connected images as media cards", () => {
     render(
       <LibraryPage
         initialSnapshot={{
@@ -64,6 +64,7 @@ describe("LibraryPage", () => {
               folderId: "references",
               id: "item",
               kind: "image",
+              storageMode: "binary",
               sourceLabel: "example.com",
               sourceUrl: "https://example.com/source",
               thumbnailUrl: "/api/media/drive-item",
@@ -82,5 +83,81 @@ describe("LibraryPage", () => {
       screen.getByRole("img", { name: "Connected reference" })
     ).toBeTruthy()
     expect(screen.queryByText("Connected reference")).toBeNull()
+  })
+
+  it("filters the library between images and videos", () => {
+    render(
+      <LibraryPage
+        initialSnapshot={{
+          folders: [],
+          items: [
+            {
+              capturedAt: "2026-08-15T10:00:00.000Z",
+              driveFileId: "image-file",
+              folderId: "root",
+              id: "image",
+              kind: "image",
+              sourceLabel: "example.com",
+              sourceUrl: "https://example.com/image",
+              storageMode: "binary",
+              thumbnailUrl: "/api/media/image-file",
+              title: "Image reference",
+            },
+            {
+              capturedAt: "2026-08-15T10:00:00.000Z",
+              driveFileId: "video-file",
+              folderId: "root",
+              id: "video",
+              kind: "video",
+              sourceLabel: "example.com",
+              sourceUrl: "https://example.com/video.mp4",
+              storageMode: "binary",
+              thumbnailUrl: "/api/media/poster-file",
+              title: "Video reference",
+            },
+          ],
+          rootFolderId: "root",
+        }}
+      />
+    )
+
+    fireEvent.click(screen.getByRole("radio", { name: "Videos" }))
+    expect(
+      screen.getByRole("button", { name: "Open Video reference" })
+    ).toBeTruthy()
+    expect(
+      screen.queryByRole("button", { name: "Open Image reference" })
+    ).toBeNull()
+    fireEvent.click(
+      screen.getByRole("button", { name: "Open Video reference" })
+    )
+    const video = document.querySelector("video")
+    expect(video?.getAttribute("preload")).toBe("metadata")
+    expect(video?.getAttribute("src")).toBe("/api/media/video-file")
+    fireEvent.click(screen.getByRole("button", { name: "Close" }))
+
+    fireEvent.click(screen.getByRole("radio", { name: "Images" }))
+    expect(
+      screen.getByRole("button", { name: "Open Image reference" })
+    ).toBeTruthy()
+    expect(
+      screen.queryByRole("button", { name: "Open Video reference" })
+    ).toBeNull()
+
+    fireEvent.keyDown(window, { key: "f" })
+    expect(
+      screen.getByRole("button", { name: "Open Video reference" })
+    ).toBeTruthy()
+    expect(
+      screen.queryByRole("button", { name: "Open Image reference" })
+    ).toBeNull()
+
+    fireEvent.keyDown(window, { key: "F" })
+    expect(
+      screen.getByRole("button", { name: "Open Image reference" })
+    ).toBeTruthy()
+    expect(
+      screen.getByRole("button", { name: "Open Video reference" })
+    ).toBeTruthy()
   })
 })

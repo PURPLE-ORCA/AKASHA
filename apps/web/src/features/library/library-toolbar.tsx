@@ -9,6 +9,8 @@ import { LibraryShortcuts } from "./library-shortcuts"
 type LibraryToolbarProps = {
   activeView: "all" | "folders"
   folderPath: LibraryFolder[]
+  mediaFilter: "all" | "image" | "video"
+  onMediaFilterChange: (filter: "all" | "image" | "video") => void
   onThemeChange: (theme: ThemePreference) => void
   onViewChange: (view: "all" | "folders") => void
   theme: ThemePreference
@@ -17,6 +19,8 @@ type LibraryToolbarProps = {
 export function LibraryToolbar({
   activeView,
   folderPath,
+  mediaFilter,
+  onMediaFilterChange,
   onThemeChange,
   onViewChange,
   theme,
@@ -45,6 +49,23 @@ export function LibraryToolbar({
           <Segment.Item id="all">All</Segment.Item>
           <Segment.Item id="folders">Folders</Segment.Item>
         </Segment>
+        {activeView === "all" ? (
+          <Segment
+            aria-label="Media filter"
+            selectedKey={mediaFilter}
+            size="sm"
+            variant="default"
+            onSelectionChange={(key) =>
+              onMediaFilterChange(key as "all" | "image" | "video")
+            }
+          >
+            <Segment.Item aria-label="All media" id="all">
+              All
+            </Segment.Item>
+            <Segment.Item id="image">Images</Segment.Item>
+            <Segment.Item id="video">Videos</Segment.Item>
+          </Segment>
+        ) : null}
         <Segment
           aria-label="Theme"
           selectedKey={theme}
