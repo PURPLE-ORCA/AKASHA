@@ -249,7 +249,10 @@ export async function moveFile(
 ) {
   const drive = createDriveClient(refreshToken)
   const currentFile = await drive.files.get({ fileId, fields: "parents" })
-  const previousParents = currentFile.data.parents?.join(",")
+  const currentParents = currentFile.data.parents ?? []
+  if (currentParents.includes(destinationFolderId)) return currentFile.data
+
+  const previousParents = currentParents.join(",")
   const response = await drive.files.update({
     addParents: destinationFolderId,
     fileId,

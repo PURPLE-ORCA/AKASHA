@@ -45,6 +45,11 @@ export function LibraryShortcuts() {
                 <Kbd.Content>U</Kbd.Content>
               </Kbd>
             </Shortcut>
+            <Shortcut label="Select multiple assets">
+              <Kbd>
+                <Kbd.Content>M</Kbd.Content>
+              </Kbd>
+            </Shortcut>
             <Shortcut label="Move through folders or media">
               <span className="shortcut-keys">
                 <Kbd>

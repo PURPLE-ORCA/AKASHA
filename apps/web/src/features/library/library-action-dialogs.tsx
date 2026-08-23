@@ -202,7 +202,9 @@ export function MoveItemsDialog({
                   Cancel
                 </Button>
                 <Button isPending={isPending} type="submit">
-                  {isPending ? "Moving…" : "Move image"}
+                  {isPending
+                    ? "Moving…"
+                    : `Move ${itemCount === 1 ? "asset" : "assets"}`}
                 </Button>
               </div>
             </Modal.Footer>
@@ -260,8 +262,8 @@ export function RemoveItemsDialog({
           <AlertDialog.Body>
             <Typography color="muted">
               {itemCount === 1
-                ? "The image will be moved to trash."
-                : "The images will be moved to trash."}
+                ? "The asset will be moved to trash."
+                : "The assets will be moved to trash."}
             </Typography>
             {error ? (
               <Typography color="muted" role="alert" type="body-sm">
@@ -275,7 +277,9 @@ export function RemoveItemsDialog({
                 Cancel
               </Button>
               <Button isPending={isPending} variant="danger" onPress={remove}>
-                {isPending ? "Deleting…" : "Delete image"}
+                {isPending
+                  ? "Deleting…"
+                  : `Delete ${itemCount === 1 ? "asset" : "assets"}`}
               </Button>
             </div>
           </AlertDialog.Footer>
@@ -286,7 +290,7 @@ export function RemoveItemsDialog({
 }
 
 function formatItemCount(count: number) {
-  return `${count} ${count === 1 ? "image" : "images"}`
+  return `${count} ${count === 1 ? "asset" : "assets"}`
 }
 
 function getActionError(error: unknown) {

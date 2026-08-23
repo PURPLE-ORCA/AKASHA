@@ -18,6 +18,7 @@ import {
   NewFolderDialog,
   RemoveItemsDialog,
 } from "./library-action-dialogs"
+import { LibraryBulkActions } from "./library-bulk-actions"
 import { LibraryCommandPalette } from "./library-command-palette"
 import { LibraryEmptyState } from "./library-empty-state"
 import { LibraryToolbar } from "./library-toolbar"
@@ -49,8 +50,10 @@ export function LibraryPage({
   )
   const [commandOpen, setCommandOpen] = useState(false)
   const [createFolderOpen, setCreateFolderOpen] = useState(false)
-  const [moveItemId, setMoveItemId] = useState<string | null>(null)
-  const [removeItemId, setRemoveItemId] = useState<string | null>(null)
+  const [isSelectionMode, setIsSelectionMode] = useState(false)
+  const [moveItemIds, setMoveItemIds] = useState<string[]>([])
+  const [removeItemIds, setRemoveItemIds] = useState<string[]>([])
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set())
   const [theme, setTheme] = useState<ThemePreference>("system")
   const uploaderRef = useRef<LibraryUploaderHandle>(null)
   const { folders, items, rootFolderId } = initialSnapshot
@@ -92,21 +95,18 @@ export function LibraryPage({
   )
   const isLibraryEmpty = folders.length === 0 && items.length === 0
   const moveDestinations = useMemo(() => {
-    const movingItem = items.find((item) => item.id === moveItemId)
-    const destinations: LibraryFolder[] = folders.filter(
-      (folder) => folder.id !== movingItem?.folderId
+    const movingItems = items.filter((item) => moveItemIds.includes(item.id))
+    const destinations: LibraryFolder[] = [
+      { id: rootFolderId, name: "Akasha", parentId: null },
+      ...folders,
+    ]
+
+    return destinations.filter(
+      (folder) =>
+        movingItems.length === 0 ||
+        !movingItems.every((item) => item.folderId === folder.id)
     )
-
-    if (movingItem?.folderId !== rootFolderId) {
-      destinations.unshift({
-        id: rootFolderId,
-        name: "Akasha",
-        parentId: null,
-      })
-    }
-
-    return destinations
-  }, [folders, items, moveItemId, rootFolderId])
+  }, [folders, items, moveItemIds, rootFolderId])
 
   useEffect(() => {
     const savedTheme = window.localStorage.getItem("stillroom-theme")
@@ -124,8 +124,14 @@ export function LibraryPage({
   }, [theme])
 
   useEffect(() => {
+    setSelectedItemIds(new Set())
+    setIsSelectionMode(false)
+  }, [activeTab, mediaFilter, selectedFolderId])
+
+  useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       const target = event.target instanceof HTMLElement ? event.target : null
+      const isDialogOpen = Boolean(document.querySelector('[role="dialog"]'))
       const isTyping =
         target?.matches("input, textarea, select") ||
         target?.isContentEditable ||
@@ -146,6 +152,13 @@ export function LibraryPage({
       if (isTyping || event.metaKey || event.ctrlKey || event.altKey) return
 
       switch (event.key.toLowerCase()) {
+        case "escape":
+          if (isSelectionMode && !isDialogOpen) {
+            event.preventDefault()
+            setIsSelectionMode(false)
+            setSelectedItemIds(new Set())
+          }
+          break
         case "arrowdown":
           if (
             !target?.closest('[role="dialog"]') &&
@@ -172,6 +185,17 @@ export function LibraryPage({
           event.preventDefault()
           setActiveTab((current) => (current === "all" ? "folders" : "all"))
           break
+        case "m":
+          if (
+            activeTab === "all" &&
+            filteredItems.length > 0 &&
+            !isDialogOpen
+          ) {
+            event.preventDefault()
+            setIsSelectionMode(!isSelectionMode)
+            if (isSelectionMode) setSelectedItemIds(new Set())
+          }
+          break
         case "u":
           if (target?.closest('[role="dialog"]')) return
           event.preventDefault()
@@ -184,6 +208,8 @@ export function LibraryPage({
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [
     activeTab,
+    filteredItems.length,
+    isSelectionMode,
     onFolderNavigate,
     parentFolderId,
     rootFolderId,
@@ -197,27 +223,51 @@ export function LibraryPage({
     await onRefresh()
   }
 
-  async function moveItem(destinationFolderId: string) {
-    if (!moveItemId) return
-    await moveLibraryItems({
-      data: { destinationFolderId, fileIds: [moveItemId] },
-    })
-    await onRefresh()
+  function changeSelectionMode(nextSelectionMode: boolean) {
+    setIsSelectionMode(nextSelectionMode)
+    if (!nextSelectionMode) setSelectedItemIds(new Set())
   }
 
-  async function removeItem() {
-    if (!removeItemId) return
-    await removeLibraryItems({ data: { fileIds: [removeItemId] } })
+  function exitSelectionMode() {
+    setIsSelectionMode(false)
+    setSelectedItemIds(new Set())
+  }
+
+  function changeItemSelection(itemId: string, isSelected: boolean) {
+    setSelectedItemIds((current) => {
+      const next = new Set(current)
+      if (isSelected) next.add(itemId)
+      else next.delete(itemId)
+      return next
+    })
+  }
+
+  async function moveItems(destinationFolderId: string) {
+    if (moveItemIds.length === 0) return
+    await moveLibraryItems({
+      data: { destinationFolderId, fileIds: moveItemIds },
+    })
     await onRefresh()
+    exitSelectionMode()
+  }
+
+  async function removeItems() {
+    if (removeItemIds.length === 0) return
+    await removeLibraryItems({ data: { fileIds: removeItemIds } })
+    await onRefresh()
+    exitSelectionMode()
   }
 
   return (
     <div className="library-shell">
       <LibraryToolbar
         activeView={activeTab}
+        canSelect={filteredItems.length > 0}
         folderPath={folderPath}
+        isSelectionMode={isSelectionMode}
         mediaFilter={mediaFilter}
         onMediaFilterChange={setMediaFilter}
+        onSelectionModeChange={changeSelectionMode}
         onThemeChange={setTheme}
         onUpload={() => uploaderRef.current?.openFilePicker()}
         onViewChange={setActiveTab}
@@ -244,14 +294,17 @@ export function LibraryPage({
                     />
                   ) : (
                     <MediaGallery
+                      isSelectionMode={isSelectionMode}
                       items={filteredItems}
-                      onMoveItem={setMoveItemId}
+                      onMoveItem={(itemId) => setMoveItemIds([itemId])}
                       onOpenFolder={(folderId) => {
                         if (folderId !== selectedFolderId && onFolderNavigate) {
                           onFolderNavigate(folderId)
                         }
                       }}
-                      onRemoveItem={setRemoveItemId}
+                      onRemoveItem={(itemId) => setRemoveItemIds([itemId])}
+                      onSelectionChange={changeItemSelection}
+                      selectedItemIds={selectedItemIds}
                     />
                   )
                 ) : (
@@ -283,6 +336,12 @@ export function LibraryPage({
         onThemeChange={setTheme}
         open={commandOpen}
       />
+      <LibraryBulkActions
+        onDelete={() => setRemoveItemIds(Array.from(selectedItemIds))}
+        onExit={exitSelectionMode}
+        onMove={() => setMoveItemIds(Array.from(selectedItemIds))}
+        selectedCount={selectedItemIds.size}
+      />
       <NewFolderDialog
         onCreate={createFolder}
         onOpenChange={setCreateFolderOpen}
@@ -291,20 +350,20 @@ export function LibraryPage({
       />
       <MoveItemsDialog
         folders={moveDestinations}
-        itemCount={moveItemId ? 1 : 0}
-        onMove={moveItem}
+        itemCount={moveItemIds.length}
+        onMove={moveItems}
         onOpenChange={(open) => {
-          if (!open) setMoveItemId(null)
+          if (!open) setMoveItemIds([])
         }}
-        open={moveItemId !== null}
+        open={moveItemIds.length > 0}
       />
       <RemoveItemsDialog
-        itemCount={removeItemId ? 1 : 0}
+        itemCount={removeItemIds.length}
         onOpenChange={(open) => {
-          if (!open) setRemoveItemId(null)
+          if (!open) setRemoveItemIds([])
         }}
-        onRemove={removeItem}
-        open={removeItemId !== null}
+        onRemove={removeItems}
+        open={removeItemIds.length > 0}
       />
       <LibraryUploader
         folderId={selectedFolderId}

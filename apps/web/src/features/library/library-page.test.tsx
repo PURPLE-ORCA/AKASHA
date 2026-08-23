@@ -77,6 +77,73 @@ describe("LibraryPage", () => {
     expect(screen.queryByText("Drop into Akasha")).toBeNull()
   })
 
+  it("enters selection mode from the toolbar or M shortcut", () => {
+    render(
+      <LibraryPage
+        initialSnapshot={{
+          folders: [],
+          items: [createLibraryItem("one", "First asset")],
+          rootFolderId: "root",
+        }}
+      />
+    )
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Select multiple assets" })
+    )
+    expect(
+      screen
+        .getByRole("button", { name: "Exit selection mode" })
+        .getAttribute("aria-pressed")
+    ).toBe("true")
+
+    fireEvent.keyDown(window, { key: "Escape" })
+    expect(
+      screen.getByRole("button", { name: "Select multiple assets" })
+    ).toBeTruthy()
+
+    fireEvent.keyDown(window, { key: "m" })
+    expect(
+      screen.getByRole("checkbox", { name: "Select First asset" })
+    ).toBeTruthy()
+  })
+
+  it("opens bulk move and delete actions for selected assets", () => {
+    render(
+      <LibraryPage
+        initialSnapshot={{
+          folders: [
+            { id: "source", name: "Source", parentId: null },
+            { id: "target", name: "Target", parentId: null },
+          ],
+          items: [
+            createLibraryItem("one", "First asset", "source"),
+            createLibraryItem("two", "Second asset", "source"),
+          ],
+          rootFolderId: "root",
+        }}
+      />
+    )
+
+    fireEvent.keyDown(window, { key: "m" })
+    fireEvent.click(screen.getByRole("button", { name: "Select First asset" }))
+    fireEvent.click(screen.getByRole("button", { name: "Select Second asset" }))
+
+    expect(screen.getByText("2 selected")).toBeTruthy()
+    fireEvent.click(
+      screen.getByRole("button", { name: "Move selected assets" })
+    )
+    expect(screen.getByRole("heading", { name: "Move 2 assets" })).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }))
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Delete selected assets" })
+    )
+    expect(
+      screen.getByRole("heading", { name: "Delete 2 assets?" })
+    ).toBeTruthy()
+  })
+
   it("switches between All and Folders with the S shortcut", () => {
     render(
       <LibraryPage
@@ -275,3 +342,18 @@ describe("LibraryPage", () => {
     ).toBeTruthy()
   })
 })
+
+function createLibraryItem(id: string, title: string, folderId = "root") {
+  return {
+    capturedAt: "2026-08-23T10:00:00.000Z",
+    driveFileId: id,
+    folderId,
+    id,
+    kind: "image" as const,
+    sourceLabel: "example.com",
+    sourceUrl: `https://example.com/${id}`,
+    storageMode: "binary" as const,
+    thumbnailUrl: `/api/media/${id}`,
+    title,
+  }
+}

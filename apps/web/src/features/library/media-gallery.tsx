@@ -10,7 +10,7 @@ import {
   PlayIcon,
   TrashIcon,
 } from "@phosphor-icons/react"
-import { Button, Label, Modal, Typography } from "@heroui/react"
+import { Button, Checkbox, Label, Modal, Typography } from "@heroui/react"
 import { ContextMenu } from "@heroui-pro/react"
 import type { LibraryItem } from "@akasha/contracts"
 
@@ -19,17 +19,23 @@ const RENDER_BATCH_SIZE = 48
 const PRIORITY_IMAGE_COUNT = 8
 
 type MediaGalleryProps = {
+  isSelectionMode: boolean
   items: LibraryItem[]
   onMoveItem: (itemId: string) => void
   onOpenFolder: (folderId: string) => void
   onRemoveItem: (itemId: string) => void
+  onSelectionChange: (itemId: string, isSelected: boolean) => void
+  selectedItemIds: ReadonlySet<string>
 }
 
 export function MediaGallery({
+  isSelectionMode,
   items,
   onMoveItem,
   onOpenFolder,
   onRemoveItem,
+  onSelectionChange,
+  selectedItemIds,
 }: MediaGalleryProps) {
   const displayItems = useMemo(() => items, [items])
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
@@ -71,12 +77,17 @@ export function MediaGallery({
       <div aria-label="Saved media" className="media-grid">
         {displayItems.slice(0, visibleCount).map((item, index) => (
           <MediaCard
+            isSelected={selectedItemIds.has(item.id)}
+            isSelectionMode={isSelectionMode}
             item={item}
             key={item.id}
             onMove={() => onMoveItem(item.id)}
             onOpen={() => setActiveIndex(index)}
             onOpenFolder={() => onOpenFolder(item.folderId)}
             onRemove={() => onRemoveItem(item.id)}
+            onSelectionChange={(isSelected) =>
+              onSelectionChange(item.id, isSelected)
+            }
             priority={index < PRIORITY_IMAGE_COUNT}
           />
         ))}
@@ -98,77 +109,110 @@ export function MediaGallery({
 }
 
 type MediaCardProps = {
+  isSelected: boolean
+  isSelectionMode: boolean
   item: LibraryItem
   onMove: () => void
   onOpen: () => void
   onOpenFolder: () => void
   onRemove: () => void
+  onSelectionChange: (isSelected: boolean) => void
   priority: boolean
 }
 
 function MediaCard({
+  isSelected,
+  isSelectionMode,
   item,
   onMove,
   onOpen,
   onOpenFolder,
   onRemove,
+  onSelectionChange,
   priority,
 }: MediaCardProps) {
+  const card = (
+    <div
+      className={`media-unit relative rounded-2xl ${isSelected ? "ring-2 ring-accent ring-offset-2 ring-offset-background" : ""}`}
+    >
+      {isSelectionMode ? (
+        <div className="absolute top-3 left-3 z-10 rounded-lg bg-surface/90 p-1 shadow-surface backdrop-blur-sm">
+          <Checkbox
+            aria-label={`${isSelected ? "Deselect" : "Select"} ${item.title}`}
+            isSelected={isSelected}
+            onChange={onSelectionChange}
+          >
+            <Checkbox.Content>
+              <Checkbox.Control>
+                <Checkbox.Indicator />
+              </Checkbox.Control>
+            </Checkbox.Content>
+          </Checkbox>
+        </div>
+      ) : null}
+      <button
+        aria-label={
+          isSelectionMode
+            ? `${isSelected ? "Deselect" : "Select"} ${item.title}`
+            : `Open ${item.title}`
+        }
+        aria-pressed={isSelectionMode ? isSelected : undefined}
+        className="media-card"
+        onClick={
+          isSelectionMode ? () => onSelectionChange(!isSelected) : onOpen
+        }
+        onKeyDown={(event) => {
+          if (
+            isSelectionMode ||
+            event.key !== "ArrowUp" ||
+            event.altKey ||
+            event.ctrlKey ||
+            event.metaKey ||
+            event.repeat
+          ) {
+            return
+          }
+
+          event.preventDefault()
+          onOpenFolder()
+        }}
+        type="button"
+      >
+        <span className={`media-card__visual media-card__visual--${item.kind}`}>
+          {item.thumbnailUrl ? (
+            <img
+              alt={item.title}
+              fetchPriority={priority ? "high" : "auto"}
+              height={item.height}
+              loading={priority ? "eager" : "lazy"}
+              src={item.thumbnailUrl}
+              width={item.width}
+            />
+          ) : (
+            <span aria-hidden="true" className="media-card__placeholder">
+              <PlayIcon weight="fill" />
+            </span>
+          )}
+          {item.kind === "video" && item.thumbnailUrl ? (
+            <span aria-hidden="true" className="media-card__play">
+              <PlayIcon weight="fill" />
+            </span>
+          ) : null}
+          {item.kind === "video" && item.durationSeconds !== undefined ? (
+            <span className="media-card__duration">
+              {formatDuration(item.durationSeconds)}
+            </span>
+          ) : null}
+        </span>
+      </button>
+    </div>
+  )
+
+  if (isSelectionMode) return card
+
   return (
     <ContextMenu>
-      <ContextMenu.Trigger>
-        <div className="media-unit">
-          <button
-            aria-label={`Open ${item.title}`}
-            className="media-card"
-            onClick={onOpen}
-            onKeyDown={(event) => {
-              if (
-                event.key !== "ArrowUp" ||
-                event.altKey ||
-                event.ctrlKey ||
-                event.metaKey ||
-                event.repeat
-              ) {
-                return
-              }
-
-              event.preventDefault()
-              onOpenFolder()
-            }}
-            type="button"
-          >
-            <span
-              className={`media-card__visual media-card__visual--${item.kind}`}
-            >
-              {item.thumbnailUrl ? (
-                <img
-                  alt={item.title}
-                  fetchPriority={priority ? "high" : "auto"}
-                  height={item.height}
-                  loading={priority ? "eager" : "lazy"}
-                  src={item.thumbnailUrl}
-                  width={item.width}
-                />
-              ) : (
-                <span aria-hidden="true" className="media-card__placeholder">
-                  <PlayIcon weight="fill" />
-                </span>
-              )}
-              {item.kind === "video" && item.thumbnailUrl ? (
-                <span aria-hidden="true" className="media-card__play">
-                  <PlayIcon weight="fill" />
-                </span>
-              ) : null}
-              {item.kind === "video" && item.durationSeconds !== undefined ? (
-                <span className="media-card__duration">
-                  {formatDuration(item.durationSeconds)}
-                </span>
-              ) : null}
-            </span>
-          </button>
-        </div>
-      </ContextMenu.Trigger>
+      <ContextMenu.Trigger>{card}</ContextMenu.Trigger>
       <ContextMenu.Popover>
         <ContextMenu.Menu
           aria-label={`Manage ${item.title}`}

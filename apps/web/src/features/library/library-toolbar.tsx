@@ -1,10 +1,12 @@
 import {
   DesktopIcon,
   MoonIcon,
+  SelectionPlusIcon,
+  SelectionSlashIcon,
   SunIcon,
   UploadSimpleIcon,
 } from "@phosphor-icons/react"
-import { Breadcrumbs, Button, Tooltip } from "@heroui/react"
+import { Breadcrumbs, Button, ToggleButton, Tooltip } from "@heroui/react"
 import { Segment } from "@heroui-pro/react"
 import type { LibraryFolder } from "@akasha/contracts"
 
@@ -13,9 +15,12 @@ import { LibraryShortcuts } from "./library-shortcuts"
 
 type LibraryToolbarProps = {
   activeView: "all" | "folders"
+  canSelect: boolean
   folderPath: LibraryFolder[]
+  isSelectionMode: boolean
   mediaFilter: "all" | "image" | "video"
   onMediaFilterChange: (filter: "all" | "image" | "video") => void
+  onSelectionModeChange: (isSelectionMode: boolean) => void
   onUpload: () => void
   onThemeChange: (theme: ThemePreference) => void
   onViewChange: (view: "all" | "folders") => void
@@ -24,9 +29,12 @@ type LibraryToolbarProps = {
 
 export function LibraryToolbar({
   activeView,
+  canSelect,
   folderPath,
+  isSelectionMode,
   mediaFilter,
   onMediaFilterChange,
+  onSelectionModeChange,
   onThemeChange,
   onUpload,
   onViewChange,
@@ -45,6 +53,32 @@ export function LibraryToolbar({
         </Breadcrumbs>
       </div>
       <div className="library-header__controls">
+        {activeView === "all" ? (
+          <Tooltip delay={0}>
+            <ToggleButton
+              isIconOnly
+              aria-label={
+                isSelectionMode
+                  ? "Exit selection mode"
+                  : "Select multiple assets"
+              }
+              isDisabled={!canSelect}
+              isSelected={isSelectionMode}
+              size="sm"
+              variant="ghost"
+              onChange={onSelectionModeChange}
+            >
+              {isSelectionMode ? (
+                <SelectionSlashIcon aria-hidden="true" />
+              ) : (
+                <SelectionPlusIcon aria-hidden="true" />
+              )}
+            </ToggleButton>
+            <Tooltip.Content>
+              {isSelectionMode ? "Exit selection mode" : "Select multiple"}
+            </Tooltip.Content>
+          </Tooltip>
+        ) : null}
         <Tooltip delay={0}>
           <Button
             isIconOnly

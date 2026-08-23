@@ -31,16 +31,70 @@ function createItem(
   }
 }
 
-function renderGallery(items: LibraryItem[]) {
+type GalleryOptions = {
+  isSelectionMode?: boolean
+  onSelectionChange?: (itemId: string, isSelected: boolean) => void
+  selectedItemIds?: ReadonlySet<string>
+}
+
+function renderGallery(
+  items: LibraryItem[],
+  {
+    isSelectionMode = false,
+    onSelectionChange = vi.fn(),
+    selectedItemIds = new Set<string>(),
+  }: GalleryOptions = {}
+) {
   render(
     <MediaGallery
+      isSelectionMode={isSelectionMode}
       items={items}
       onMoveItem={vi.fn()}
       onOpenFolder={vi.fn()}
       onRemoveItem={vi.fn()}
+      onSelectionChange={onSelectionChange}
+      selectedItemIds={selectedItemIds}
     />
   )
 }
+
+describe("MediaGallery selection", () => {
+  it("selects a card instead of opening its preview in selection mode", () => {
+    const onSelectionChange = vi.fn()
+    renderGallery([createItem("image")], {
+      isSelectionMode: true,
+      onSelectionChange,
+    })
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Select image reference" })
+    )
+
+    expect(onSelectionChange).toHaveBeenCalledWith("image", true)
+    expect(screen.queryByRole("dialog")).toBeNull()
+    expect(
+      screen.getByRole("checkbox", { name: "Select image reference" })
+    ).toBeTruthy()
+  })
+
+  it("exposes selected cards as pressed and checked", () => {
+    renderGallery([createItem("image")], {
+      isSelectionMode: true,
+      selectedItemIds: new Set(["image"]),
+    })
+
+    expect(
+      screen
+        .getByRole("button", { name: "Deselect image reference" })
+        .getAttribute("aria-pressed")
+    ).toBe("true")
+    expect(
+      screen.getByRole("checkbox", {
+        name: "Deselect image reference",
+      }).checked
+    ).toBe(true)
+  })
+})
 
 describe("MediaGallery context menu", () => {
   it("downloads the full image with its title and file extension", async () => {
