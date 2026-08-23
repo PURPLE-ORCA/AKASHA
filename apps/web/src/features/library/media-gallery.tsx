@@ -3,6 +3,7 @@ import {
   ArrowLeftIcon,
   ArrowRightIcon,
   ArrowsInSimpleIcon,
+  DownloadSimpleIcon,
   FolderSimpleIcon,
   MinusIcon,
   PlusIcon,
@@ -172,10 +173,19 @@ function MediaCard({
         <ContextMenu.Menu
           aria-label={`Manage ${item.title}`}
           onAction={(key) => {
+            if (key === "download" && item.kind === "image") {
+              downloadImage(item)
+            }
             if (key === "move") onMove()
             if (key === "remove") onRemove()
           }}
         >
+          {item.kind === "image" ? (
+            <ContextMenu.Item id="download" textValue="Download">
+              <DownloadSimpleIcon aria-hidden="true" />
+              <Label>Download</Label>
+            </ContextMenu.Item>
+          ) : null}
           <ContextMenu.Item id="move" textValue="Move to folder">
             <FolderSimpleIcon aria-hidden="true" />
             <Label>Move to folder</Label>
@@ -189,6 +199,29 @@ function MediaCard({
       </ContextMenu.Popover>
     </ContextMenu>
   )
+}
+
+const imageFileExtensions: Record<string, string> = {
+  "image/avif": "avif",
+  "image/gif": "gif",
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+}
+
+function downloadImage(item: LibraryItem) {
+  const link = document.createElement("a")
+  const extension = item.mimeType
+    ? imageFileExtensions[item.mimeType]
+    : undefined
+  const title = item.title.trim()
+
+  link.download =
+    extension && !title.toLowerCase().endsWith(`.${extension}`)
+      ? `${title}.${extension}`
+      : title
+  link.href = `/api/media/${encodeURIComponent(item.driveFileId)}`
+  link.click()
 }
 
 type MediaLightboxProps = {
