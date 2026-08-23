@@ -41,7 +41,40 @@ describe("LibraryPage", () => {
       screen.getByRole("button", { name: "Keyboard shortcuts" })
     ).toBeTruthy()
     expect(screen.getByRole("button", { name: "Create folder" })).toBeTruthy()
+    expect(
+      screen.getAllByRole("button", { name: "Upload images" })
+    ).toHaveLength(2)
     expect(screen.queryByRole("img")).toBeNull()
+  })
+
+  it("opens the image picker with the U shortcut", () => {
+    const click = vi
+      .spyOn(HTMLInputElement.prototype, "click")
+      .mockImplementation(() => undefined)
+
+    render(
+      <LibraryPage
+        initialSnapshot={{ folders: [], items: [], rootFolderId: "root" }}
+      />
+    )
+
+    fireEvent.keyDown(window, { key: "u" })
+    expect(click).toHaveBeenCalledOnce()
+  })
+
+  it("shows the current upload destination while files are dragged", () => {
+    render(
+      <LibraryPage
+        initialSnapshot={{ folders: [], items: [], rootFolderId: "root" }}
+      />
+    )
+
+    const uploadZone = document.querySelector("[data-library-upload-zone]")
+    expect(uploadZone).toBeTruthy()
+    fireEvent.dragEnter(uploadZone!, { dataTransfer: { types: ["Files"] } })
+    expect(screen.getByText("Drop into Akasha")).toBeTruthy()
+    fireEvent.dragLeave(uploadZone!, { dataTransfer: { types: ["Files"] } })
+    expect(screen.queryByText("Drop into Akasha")).toBeNull()
   })
 
   it("switches between All and Folders with the S shortcut", () => {

@@ -1,8 +1,18 @@
 import { z } from "zod"
 
+export const libraryUploadMimeTypes = [
+  "image/avif",
+  "image/gif",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+] as const
+export const maximumLibraryUploadBytes = 20 * 1024 * 1024
+
 export const mediaKindSchema = z.enum(["image", "video"])
 export const mediaStorageSchema = z.enum(["binary", "reference"])
 export const captureOutcomeSchema = z.enum(["saved", "already_saved"])
+export const libraryUploadMimeTypeSchema = z.enum(libraryUploadMimeTypes)
 
 export const captureDraftSchema = z.object({
   kind: mediaKindSchema,
@@ -51,5 +61,6 @@ export type CaptureOutcome = z.infer<typeof captureOutcomeSchema>
 export type CaptureRequest = z.infer<typeof captureRequestSchema>
 export type LibraryFolder = z.infer<typeof libraryFolderSchema>
 export type LibraryItem = z.infer<typeof libraryItemSchema>
+export type LibraryUploadMimeType = z.infer<typeof libraryUploadMimeTypeSchema>
 export type MediaKind = z.infer<typeof mediaKindSchema>
 export type MediaStorage = z.infer<typeof mediaStorageSchema>

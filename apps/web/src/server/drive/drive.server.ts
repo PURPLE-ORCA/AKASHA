@@ -2,7 +2,15 @@ import { isIP } from "node:net"
 import { lookup } from "node:dns/promises"
 import { Readable, Transform } from "node:stream"
 import type { ReadableStream as NodeReadableStream } from "node:stream/web"
-import type { CaptureDraft, CaptureOutcome } from "@akasha/contracts"
+import {
+  libraryUploadMimeTypes,
+  maximumLibraryUploadBytes,
+} from "@akasha/contracts"
+import type {
+  CaptureDraft,
+  CaptureOutcome,
+  LibraryUploadMimeType,
+} from "@akasha/contracts"
 import { google } from "googleapis"
 import type { drive_v3 } from "googleapis"
 
@@ -23,15 +31,9 @@ const ROOT_PROPERTY_KEY = "stillroomRole"
 const ROOT_PROPERTY_VALUE = "root"
 const FILE_FIELDS =
   "nextPageToken,files(id,name,mimeType,size,parents,description,thumbnailLink,webContentLink,webViewLink,appProperties,imageMediaMetadata,videoMediaMetadata,createdTime)"
-const IMAGE_MIME_TYPES = new Set([
-  "image/avif",
-  "image/gif",
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-])
+const IMAGE_MIME_TYPES = new Set<string>(libraryUploadMimeTypes)
 const VIDEO_MIME_TYPES = new Set(["video/mp4", "video/webm"])
-const MAXIMUM_IMAGE_BYTES = 20 * 1024 * 1024
+const MAXIMUM_IMAGE_BYTES = maximumLibraryUploadBytes
 const MAXIMUM_POSTER_BYTES = 5 * 1024 * 1024
 const MAXIMUM_VIDEO_BYTES = 50 * 1024 * 1024
 
@@ -50,6 +52,13 @@ export type CaptureSaveResult = {
   file: drive_v3.Schema$File
   outcome: CaptureOutcome
   timings: CaptureSaveTimings
+}
+
+export type LibraryImageUpload = {
+  byteSize: number
+  fileName: string
+  mimeType: string
+  stream: ReadableStream<Uint8Array>
 }
 
 export class CaptureSourceError extends Error {
@@ -444,6 +453,82 @@ export async function saveUploadedVideoCapture(
   }
 }
 
+export async function saveUploadedImage(
+  credentials: DriveCredentialInput,
+  folderId: string,
+  upload: LibraryImageUpload
+): Promise<CaptureSaveResult> {
+  if (upload.byteSize <= 0) {
+    throw new CaptureSourceError("This image is empty.")
+  }
+  if (upload.byteSize > MAXIMUM_IMAGE_BYTES) {
+    throw new CaptureSourceError("This image is too large to save.")
+  }
+
+  const mimeType = normalizeMediaMimeType(
+    upload.mimeType,
+    "image"
+  ) as LibraryUploadMimeType
+  const fileName = normalizeLibraryUploadFileName(upload.fileName, mimeType)
+  const sourceStream = Readable.fromWeb(
+    upload.stream as unknown as NodeReadableStream
+  )
+  const contentHash = createContentHashTransform()
+  const drive = createDriveClient(credentials)
+  const timings: CaptureSaveTimings = {
+    dedupeMs: 0,
+    driveUploadMs: 0,
+    idempotencyMs: 0,
+    sourceResponseMs: 0,
+  }
+
+  try {
+    const driveUploadStartedAt = performance.now()
+    const response = await drive.files.create(
+      {
+        fields:
+          "id,name,mimeType,size,parents,thumbnailLink,webViewLink,appProperties,createdTime",
+        media: {
+          body: sourceStream
+            .pipe(createImageValidationTransform(mimeType, MAXIMUM_IMAGE_BYTES))
+            .pipe(contentHash.stream),
+          mimeType,
+        },
+        requestBody: {
+          appProperties: {
+            stillroomKind: "image",
+            stillroomOrigin: "upload",
+            stillroomType: "item",
+          },
+          description: JSON.stringify({
+            storageMode: "binary",
+            title: removeFileExtension(fileName),
+          }),
+          mimeType,
+          name: fileName,
+          parents: [folderId],
+        },
+      },
+      { timeout: 60_000 }
+    )
+    timings.driveUploadMs = performance.now() - driveUploadStartedAt
+
+    if (!response.data.id) {
+      throw new Error("Akasha could not identify the uploaded image.")
+    }
+
+    const result = await finalizeContentHash(
+      drive,
+      response.data,
+      contentHash.digest(),
+      timings
+    )
+    return { ...result, timings }
+  } finally {
+    sourceStream.destroy()
+  }
+}
+
 async function uploadCaptureStream(
   drive: drive_v3.Drive,
   draft: CaptureDraft,
@@ -484,38 +569,14 @@ async function uploadCaptureStream(
     throw new Error("Akasha could not identify the saved capture.")
   }
 
-  const duplicate = await findDuplicateByProperty(
+  const finalized = await finalizeContentHash(
     drive,
-    CONTENT_HASH_PROPERTY,
+    file,
     contentHash.digest(),
     timings
   )
-
-  if (duplicate) {
-    const dedupeStartedAt = performance.now()
-    await drive.files.update({
-      fileId: file.id,
-      fields: "id,trashed",
-      requestBody: { trashed: true },
-    })
-    timings.dedupeMs += performance.now() - dedupeStartedAt
-    return { file: duplicate, outcome: "already_saved" as const }
-  }
-
-  const dedupeStartedAt = performance.now()
-  const fingerprinted = await drive.files.update({
-    fileId: file.id,
-    fields:
-      "id,name,mimeType,size,parents,thumbnailLink,appProperties,createdTime",
-    requestBody: {
-      appProperties: {
-        ...file.appProperties,
-        [CONTENT_HASH_PROPERTY]: contentHash.digest(),
-      },
-    },
-  })
-  timings.dedupeMs += performance.now() - dedupeStartedAt
-  file = fingerprinted.data
+  if (finalized.outcome === "already_saved") return finalized
+  file = finalized.file
 
   if (draft.kind === "video" && file.id && draft.thumbnailUrl) {
     const posterDriveFileId = await saveVideoPoster(
@@ -604,6 +665,120 @@ export function createSizeLimitTransform(
       callback(null, chunk)
     },
   })
+}
+
+export function createImageValidationTransform(
+  mimeType: LibraryUploadMimeType,
+  maximumBytes: number
+) {
+  let buffered = Buffer.alloc(0)
+  let receivedBytes = 0
+  let validated = false
+
+  return new Transform({
+    transform(chunk: Buffer, _encoding, callback) {
+      receivedBytes += chunk.byteLength
+      if (receivedBytes > maximumBytes) {
+        callback(new CaptureSourceError("This image is too large to save."))
+        return
+      }
+
+      if (validated) {
+        callback(null, chunk)
+        return
+      }
+
+      buffered = Buffer.concat([buffered, chunk])
+      if (buffered.byteLength < 32) {
+        callback()
+        return
+      }
+
+      if (detectImageMimeType(buffered) !== mimeType) {
+        callback(new CaptureSourceError("This image format is not supported."))
+        return
+      }
+
+      validated = true
+      callback(null, buffered)
+      buffered = Buffer.alloc(0)
+    },
+    flush(callback) {
+      if (!validated && detectImageMimeType(buffered) !== mimeType) {
+        callback(new CaptureSourceError("This image format is not supported."))
+        return
+      }
+      if (!validated) this.push(buffered)
+      callback()
+    },
+  })
+}
+
+function detectImageMimeType(bytes: Buffer): LibraryUploadMimeType | undefined {
+  if (
+    bytes.byteLength >= 8 &&
+    bytes
+      .subarray(0, 8)
+      .equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))
+  ) {
+    return "image/png"
+  }
+  if (
+    bytes.byteLength >= 3 &&
+    bytes[0] === 0xff &&
+    bytes[1] === 0xd8 &&
+    bytes[2] === 0xff
+  ) {
+    return "image/jpeg"
+  }
+  if (
+    bytes.byteLength >= 6 &&
+    ["GIF87a", "GIF89a"].includes(bytes.subarray(0, 6).toString("ascii"))
+  ) {
+    return "image/gif"
+  }
+  if (
+    bytes.byteLength >= 12 &&
+    bytes.subarray(0, 4).toString("ascii") === "RIFF" &&
+    bytes.subarray(8, 12).toString("ascii") === "WEBP"
+  ) {
+    return "image/webp"
+  }
+  if (
+    bytes.byteLength >= 16 &&
+    bytes.subarray(4, 8).toString("ascii") === "ftyp"
+  ) {
+    for (let offset = 8; offset + 4 <= bytes.byteLength; offset += 4) {
+      if (
+        ["avif", "avis"].includes(
+          bytes.subarray(offset, offset + 4).toString("ascii")
+        )
+      ) {
+        return "image/avif"
+      }
+    }
+  }
+
+  return undefined
+}
+
+export function normalizeLibraryUploadFileName(
+  value: string,
+  mimeType: LibraryUploadMimeType
+) {
+  const extensionByMimeType: Record<LibraryUploadMimeType, string> = {
+    "image/avif": "avif",
+    "image/gif": "gif",
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+  }
+  const extension = extensionByMimeType[mimeType]
+  const cleaned = removeControlCharacters(value.replace(/[\\/]+/g, "-")).trim()
+  const stem = removeFileExtension(cleaned).trim() || "upload"
+  const maximumStemLength = 240 - extension.length - 1
+
+  return `${stem.slice(0, maximumStemLength)}.${extension}`
 }
 
 export function createVideoValidationTransform(
@@ -760,6 +935,46 @@ async function findDuplicateByProperty(
   return response.data.files?.[0]
 }
 
+async function finalizeContentHash(
+  drive: drive_v3.Drive,
+  file: drive_v3.Schema$File,
+  contentHash: string,
+  timings: CaptureSaveTimings
+): Promise<{ file: drive_v3.Schema$File; outcome: CaptureOutcome }> {
+  const duplicate = await findDuplicateByProperty(
+    drive,
+    CONTENT_HASH_PROPERTY,
+    contentHash,
+    timings
+  )
+
+  if (duplicate) {
+    const dedupeStartedAt = performance.now()
+    await drive.files.update({
+      fileId: file.id!,
+      fields: "id,trashed",
+      requestBody: { trashed: true },
+    })
+    timings.dedupeMs += performance.now() - dedupeStartedAt
+    return { file: duplicate, outcome: "already_saved" }
+  }
+
+  const dedupeStartedAt = performance.now()
+  const fingerprinted = await drive.files.update({
+    fileId: file.id!,
+    fields:
+      "id,name,mimeType,size,parents,thumbnailLink,webViewLink,appProperties,createdTime",
+    requestBody: {
+      appProperties: {
+        ...file.appProperties,
+        [CONTENT_HASH_PROPERTY]: contentHash,
+      },
+    },
+  })
+  timings.dedupeMs += performance.now() - dedupeStartedAt
+  return { file: fingerprinted.data, outcome: "saved" }
+}
+
 async function runWithConcurrency<T>(
   values: T[],
   concurrency: number,
@@ -900,6 +1115,19 @@ function normalizeHostname(hostname: string) {
   return normalized.startsWith("[") && normalized.endsWith("]")
     ? normalized.slice(1, -1)
     : normalized
+}
+
+function removeFileExtension(fileName: string) {
+  return fileName.replace(/\.[^.]+$/, "")
+}
+
+function removeControlCharacters(value: string) {
+  return Array.from(value)
+    .filter((character) => {
+      const codePoint = character.codePointAt(0) ?? 0
+      return codePoint >= 32 && codePoint !== 127
+    })
+    .join("")
 }
 
 function slugify(value: string) {

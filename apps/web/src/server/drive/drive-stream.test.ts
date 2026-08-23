@@ -2,10 +2,12 @@ import { Readable } from "node:stream"
 import { describe, expect, it } from "vitest"
 
 import {
+  createImageValidationTransform,
   createSizeLimitTransform,
   createVideoValidationTransform,
   fetchSafeRemoteSource,
   isPrivateIpAddress,
+  normalizeLibraryUploadFileName,
 } from "./drive.server"
 
 describe("capture upload stream", () => {
@@ -38,6 +40,32 @@ describe("capture upload stream", () => {
     await expect(async () => {
       for await (const _chunk of stream) void _chunk
     }).rejects.toThrow("too large")
+  })
+
+  it("accepts matching image signatures and rejects spoofed types", async () => {
+    const pngBytes = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      Buffer.alloc(24),
+    ])
+    const valid = Readable.from([pngBytes]).pipe(
+      createImageValidationTransform("image/png", 100)
+    )
+    const spoofed = Readable.from([pngBytes]).pipe(
+      createImageValidationTransform("image/jpeg", 100)
+    )
+    spoofed.on("error", () => undefined)
+
+    await expect(readStream(valid)).resolves.toEqual(pngBytes)
+    await expect(readStream(spoofed)).rejects.toThrow("not supported")
+  })
+
+  it("normalizes local filenames while preserving a matching extension", () => {
+    expect(
+      normalizeLibraryUploadFileName("Campaign / Hero.PNG", "image/png")
+    ).toBe("Campaign - Hero.png")
+    expect(normalizeLibraryUploadFileName("\u0000", "image/webp")).toBe(
+      "upload.webp"
+    )
   })
 
   it("accepts streamed MP4 and WebM signatures", async () => {

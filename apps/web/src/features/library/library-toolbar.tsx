@@ -1,5 +1,10 @@
-import { MoonIcon, SunIcon, DesktopIcon } from "@phosphor-icons/react"
-import { Breadcrumbs } from "@heroui/react"
+import {
+  DesktopIcon,
+  MoonIcon,
+  SunIcon,
+  UploadSimpleIcon,
+} from "@phosphor-icons/react"
+import { Breadcrumbs, Button, Tooltip } from "@heroui/react"
 import { Segment } from "@heroui-pro/react"
 import type { LibraryFolder } from "@akasha/contracts"
 
@@ -11,6 +16,7 @@ type LibraryToolbarProps = {
   folderPath: LibraryFolder[]
   mediaFilter: "all" | "image" | "video"
   onMediaFilterChange: (filter: "all" | "image" | "video") => void
+  onUpload: () => void
   onThemeChange: (theme: ThemePreference) => void
   onViewChange: (view: "all" | "folders") => void
   theme: ThemePreference
@@ -22,6 +28,7 @@ export function LibraryToolbar({
   mediaFilter,
   onMediaFilterChange,
   onThemeChange,
+  onUpload,
   onViewChange,
   theme,
 }: LibraryToolbarProps) {
@@ -38,6 +45,18 @@ export function LibraryToolbar({
         </Breadcrumbs>
       </div>
       <div className="library-header__controls">
+        <Tooltip delay={0}>
+          <Button
+            isIconOnly
+            aria-label="Upload images"
+            size="sm"
+            variant="outline"
+            onPress={onUpload}
+          >
+            <UploadSimpleIcon aria-hidden="true" />
+          </Button>
+          <Tooltip.Content>Upload images</Tooltip.Content>
+        </Tooltip>
         <LibraryShortcuts />
         <Segment
           aria-label="Library views"

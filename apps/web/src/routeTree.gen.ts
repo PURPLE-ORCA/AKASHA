@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiUploadsRouteImport } from './routes/api/uploads'
 import { Route as ApiAuthGoogleRouteImport } from './routes/api/auth/google'
 import { Route as ApiExtensionAuthRouteImport } from './routes/api/extension/auth'
 import { Route as ApiExtensionCapturesRouteImport } from './routes/api/extension/captures'
@@ -21,6 +22,11 @@ import { Route as ApiAuthGoogleCallbackRouteImport } from './routes/api/auth/goo
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiUploadsRoute = ApiUploadsRouteImport.update({
+  id: '/api/uploads',
+  path: '/api/uploads',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthGoogleRoute = ApiAuthGoogleRouteImport.update({
@@ -61,6 +67,7 @@ const ApiAuthGoogleCallbackRoute = ApiAuthGoogleCallbackRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/uploads': typeof ApiUploadsRoute
   '/api/auth/google': typeof ApiAuthGoogleRouteWithChildren
   '/api/extension/auth': typeof ApiExtensionAuthRoute
   '/api/extension/captures': typeof ApiExtensionCapturesRoute
@@ -71,6 +78,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/uploads': typeof ApiUploadsRoute
   '/api/auth/google': typeof ApiAuthGoogleRouteWithChildren
   '/api/extension/auth': typeof ApiExtensionAuthRoute
   '/api/extension/captures': typeof ApiExtensionCapturesRoute
@@ -82,6 +90,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/uploads': typeof ApiUploadsRoute
   '/api/auth/google': typeof ApiAuthGoogleRouteWithChildren
   '/api/extension/auth': typeof ApiExtensionAuthRoute
   '/api/extension/captures': typeof ApiExtensionCapturesRoute
@@ -94,6 +103,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/api/uploads'
     | '/api/auth/google'
     | '/api/extension/auth'
     | '/api/extension/captures'
@@ -104,6 +114,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/api/uploads'
     | '/api/auth/google'
     | '/api/extension/auth'
     | '/api/extension/captures'
@@ -114,6 +125,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/api/uploads'
     | '/api/auth/google'
     | '/api/extension/auth'
     | '/api/extension/captures'
@@ -125,6 +137,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiUploadsRoute: typeof ApiUploadsRoute
   ApiAuthGoogleRoute: typeof ApiAuthGoogleRouteWithChildren
   ApiExtensionAuthRoute: typeof ApiExtensionAuthRoute
   ApiExtensionCapturesRoute: typeof ApiExtensionCapturesRoute
@@ -140,6 +153,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/uploads': {
+      id: '/api/uploads'
+      path: '/api/uploads'
+      fullPath: '/api/uploads'
+      preLoaderRoute: typeof ApiUploadsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/auth/google': {
@@ -208,6 +228,7 @@ const ApiAuthGoogleRouteWithChildren = ApiAuthGoogleRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiUploadsRoute: ApiUploadsRoute,
   ApiAuthGoogleRoute: ApiAuthGoogleRouteWithChildren,
   ApiExtensionAuthRoute: ApiExtensionAuthRoute,
   ApiExtensionCapturesRoute: ApiExtensionCapturesRoute,

@@ -40,6 +40,11 @@ export function LibraryShortcuts() {
                 <Kbd.Content>F</Kbd.Content>
               </Kbd>
             </Shortcut>
+            <Shortcut label="Upload images">
+              <Kbd>
+                <Kbd.Content>U</Kbd.Content>
+              </Kbd>
+            </Shortcut>
             <Shortcut label="Move through folders or media">
               <span className="shortcut-keys">
                 <Kbd>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { FolderSimplePlusIcon } from "@phosphor-icons/react"
 import { Label, Typography } from "@heroui/react"
 import { ContextMenu } from "@heroui-pro/react"
@@ -21,6 +21,8 @@ import {
 import { LibraryCommandPalette } from "./library-command-palette"
 import { LibraryEmptyState } from "./library-empty-state"
 import { LibraryToolbar } from "./library-toolbar"
+import { LibraryDropTarget, LibraryUploader } from "./library-upload"
+import type { LibraryUploaderHandle } from "./library-upload"
 import { MediaGallery } from "./media-gallery"
 import {
   createLibraryFolder,
@@ -50,6 +52,7 @@ export function LibraryPage({
   const [moveItemId, setMoveItemId] = useState<string | null>(null)
   const [removeItemId, setRemoveItemId] = useState<string | null>(null)
   const [theme, setTheme] = useState<ThemePreference>("system")
+  const uploaderRef = useRef<LibraryUploaderHandle>(null)
   const { folders, items, rootFolderId } = initialSnapshot
   const selectedFolderId = getSelectedFolderId(
     folders,
@@ -169,6 +172,11 @@ export function LibraryPage({
           event.preventDefault()
           setActiveTab((current) => (current === "all" ? "folders" : "all"))
           break
+        case "u":
+          if (target?.closest('[role="dialog"]')) return
+          event.preventDefault()
+          uploaderRef.current?.openFilePicker()
+          break
       }
     }
 
@@ -211,55 +219,64 @@ export function LibraryPage({
         mediaFilter={mediaFilter}
         onMediaFilterChange={setMediaFilter}
         onThemeChange={setTheme}
+        onUpload={() => uploaderRef.current?.openFilePicker()}
         onViewChange={setActiveTab}
         theme={theme}
       />
-      <ContextMenu>
-        <ContextMenu.Trigger
-          render={(props) => <div {...props} data-library-context-trigger />}
-        >
-          <main className="library-main" id="main-content">
-            <div className="sr-only">
-              <Typography type="h1">{selectedFolderName}</Typography>
-            </div>
-            <div className="library-content">
-              {activeTab === "all" ? (
-                isLibraryEmpty ? (
-                  <LibraryEmptyState onCreateFolder={createFolder} />
-                ) : (
-                  <MediaGallery
-                    items={filteredItems}
-                    onMoveItem={setMoveItemId}
-                    onOpenFolder={(folderId) => {
-                      if (folderId !== selectedFolderId && onFolderNavigate) {
-                        onFolderNavigate(folderId)
-                      }
-                    }}
-                    onRemoveItem={setRemoveItemId}
-                  />
-                )
-              ) : (
-                <FolderGallery
-                  folders={visibleFolders}
-                  items={items}
-                  libraryFolders={folders}
-                />
-              )}
-            </div>
-          </main>
-        </ContextMenu.Trigger>
-        <ContextMenu.Popover>
-          <ContextMenu.Menu
-            aria-label="Folder actions"
-            onAction={() => setCreateFolderOpen(true)}
+      <LibraryDropTarget
+        folderName={selectedFolderName}
+        onFiles={(files) => uploaderRef.current?.addFiles(files)}
+      >
+        <ContextMenu>
+          <ContextMenu.Trigger
+            render={(props) => <div {...props} data-library-context-trigger />}
           >
-            <ContextMenu.Item id="create-folder" textValue="Create folder">
-              <FolderSimplePlusIcon aria-hidden="true" />
-              <Label>Create folder</Label>
-            </ContextMenu.Item>
-          </ContextMenu.Menu>
-        </ContextMenu.Popover>
-      </ContextMenu>
+            <main className="library-main" id="main-content">
+              <div className="sr-only">
+                <Typography type="h1">{selectedFolderName}</Typography>
+              </div>
+              <div className="library-content">
+                {activeTab === "all" ? (
+                  isLibraryEmpty ? (
+                    <LibraryEmptyState
+                      onCreateFolder={createFolder}
+                      onUpload={() => uploaderRef.current?.openFilePicker()}
+                    />
+                  ) : (
+                    <MediaGallery
+                      items={filteredItems}
+                      onMoveItem={setMoveItemId}
+                      onOpenFolder={(folderId) => {
+                        if (folderId !== selectedFolderId && onFolderNavigate) {
+                          onFolderNavigate(folderId)
+                        }
+                      }}
+                      onRemoveItem={setRemoveItemId}
+                    />
+                  )
+                ) : (
+                  <FolderGallery
+                    folders={visibleFolders}
+                    items={items}
+                    libraryFolders={folders}
+                  />
+                )}
+              </div>
+            </main>
+          </ContextMenu.Trigger>
+          <ContextMenu.Popover>
+            <ContextMenu.Menu
+              aria-label="Folder actions"
+              onAction={() => setCreateFolderOpen(true)}
+            >
+              <ContextMenu.Item id="create-folder" textValue="Create folder">
+                <FolderSimplePlusIcon aria-hidden="true" />
+                <Label>Create folder</Label>
+              </ContextMenu.Item>
+            </ContextMenu.Menu>
+          </ContextMenu.Popover>
+        </ContextMenu>
+      </LibraryDropTarget>
       <LibraryCommandPalette
         folders={folders}
         onOpenChange={setCommandOpen}
@@ -288,6 +305,12 @@ export function LibraryPage({
         }}
         onRemove={removeItem}
         open={removeItemId !== null}
+      />
+      <LibraryUploader
+        folderId={selectedFolderId}
+        folderName={selectedFolderName}
+        onRefresh={onRefresh}
+        ref={uploaderRef}
       />
     </div>
   )

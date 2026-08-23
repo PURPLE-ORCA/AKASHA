@@ -1,14 +1,19 @@
 import { useState } from "react"
-import { FolderSimplePlusIcon } from "@phosphor-icons/react"
+import { FolderSimplePlusIcon, UploadSimpleIcon } from "@phosphor-icons/react"
+import { Button } from "@heroui/react"
 import { EmptyState } from "@heroui-pro/react"
 
 import { NewFolderDialog } from "./library-action-dialogs"
 
 type LibraryEmptyStateProps = {
   onCreateFolder: (name: string) => Promise<void>
+  onUpload: () => void
 }
 
-export function LibraryEmptyState({ onCreateFolder }: LibraryEmptyStateProps) {
+export function LibraryEmptyState({
+  onCreateFolder,
+  onUpload,
+}: LibraryEmptyStateProps) {
   const [isOpen, setIsOpen] = useState(false)
 
   return (
@@ -24,13 +29,19 @@ export function LibraryEmptyState({ onCreateFolder }: LibraryEmptyStateProps) {
           </EmptyState.Description>
         </EmptyState.Header>
         <EmptyState.Content>
-          <NewFolderDialog
-            onCreate={onCreateFolder}
-            onOpenChange={setIsOpen}
-            open={isOpen}
-            parentName="Akasha"
-            triggerLabel="Create folder"
-          />
+          <div className="flex flex-wrap justify-center gap-3">
+            <Button variant="primary" onPress={onUpload}>
+              <UploadSimpleIcon aria-hidden="true" />
+              Upload images
+            </Button>
+            <NewFolderDialog
+              onCreate={onCreateFolder}
+              onOpenChange={setIsOpen}
+              open={isOpen}
+              parentName="Akasha"
+              triggerLabel="Create folder"
+            />
+          </div>
         </EmptyState.Content>
       </EmptyState>
     </div>

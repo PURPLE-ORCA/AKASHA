@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { CONTENT_HASH_PROPERTY } from "./capture-dedupe.server"
-import { backfillCaptureDedupeMetadata, saveCapture } from "./drive.server"
+import {
+  backfillCaptureDedupeMetadata,
+  saveCapture,
+  saveUploadedImage,
+} from "./drive.server"
 
 const mocks = vi.hoisted(() => ({
   create: vi.fn(),
@@ -119,6 +123,56 @@ describe("Drive capture duplicate detection", () => {
     const result = await saveCapture("refresh-token", draft, "folder")
 
     expect(result.outcome).toBe("saved")
+    expect(result.file.appProperties?.[CONTENT_HASH_PROPERTY]).toMatch(
+      /^[a-f0-9]{64}$/
+    )
+  })
+
+  it("stores a validated local image with upload metadata", async () => {
+    const pngBytes = Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      Buffer.alloc(24),
+    ])
+    mocks.list.mockResolvedValue({ data: { files: [] } })
+    mocks.create.mockImplementationOnce(async ({ media, requestBody }) => {
+      for await (const _chunk of media.body) void _chunk
+      return {
+        data: {
+          appProperties: requestBody.appProperties,
+          id: "local-upload",
+          name: requestBody.name,
+        },
+      }
+    })
+    mocks.update.mockImplementationOnce(async ({ requestBody }) => ({
+      data: {
+        appProperties: requestBody.appProperties,
+        id: "local-upload",
+        name: "Campaign Hero.png",
+      },
+    }))
+
+    const result = await saveUploadedImage("refresh-token", "folder", {
+      byteSize: pngBytes.byteLength,
+      fileName: "Campaign Hero.PNG",
+      mimeType: "image/png",
+      stream: new Blob([pngBytes]).stream(),
+    })
+
+    expect(result.outcome).toBe("saved")
+    expect(mocks.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestBody: expect.objectContaining({
+          appProperties: expect.objectContaining({
+            stillroomOrigin: "upload",
+            stillroomType: "item",
+          }),
+          name: "Campaign Hero.png",
+          parents: ["folder"],
+        }),
+      }),
+      { timeout: 60_000 }
+    )
     expect(result.file.appProperties?.[CONTENT_HASH_PROPERTY]).toMatch(
       /^[a-f0-9]{64}$/
     )

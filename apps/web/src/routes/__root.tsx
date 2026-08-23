@@ -4,7 +4,7 @@ import {
   createRootRoute,
   useNavigate,
 } from "@tanstack/react-router"
-import { Link, Typography } from "@heroui/react"
+import { Link, Toast, Typography } from "@heroui/react"
 import { RouterProvider } from "react-aria-components"
 
 import { themeBootstrapScript } from "@/features/theme/theme"
@@ -67,6 +67,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
             Skip to content
           </a>
           {children}
+          <Toast.Provider placement="bottom end" />
         </RouterProvider>
         <Scripts />
       </body>

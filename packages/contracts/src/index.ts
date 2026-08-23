@@ -6,6 +6,7 @@ export type {
   CaptureRequest,
   LibraryFolder,
   LibraryItem,
+  LibraryUploadMimeType,
   MediaKind,
   MediaStorage,
 } from "./library"
@@ -15,6 +16,9 @@ export {
   captureRequestSchema,
   libraryFolderSchema,
   libraryItemSchema,
+  libraryUploadMimeTypeSchema,
+  libraryUploadMimeTypes,
+  maximumLibraryUploadBytes,
   mediaKindSchema,
   mediaStorageSchema,
 } from "./library"

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest"
 
-import { captureOutcomeSchema, captureRequestSchema } from "./library"
+import {
+  captureOutcomeSchema,
+  captureRequestSchema,
+  libraryUploadMimeTypeSchema,
+  maximumLibraryUploadBytes,
+} from "./library"
 
 describe("captureRequestSchema", () => {
   it("accepts a stable capture id and defaults the first attempt", () => {
@@ -45,5 +50,13 @@ describe("captureOutcomeSchema", () => {
   it("distinguishes new captures from existing library items", () => {
     expect(captureOutcomeSchema.parse("saved")).toBe("saved")
     expect(captureOutcomeSchema.parse("already_saved")).toBe("already_saved")
+  })
+})
+
+describe("library upload policy", () => {
+  it("accepts supported image types and rejects active image documents", () => {
+    expect(libraryUploadMimeTypeSchema.parse("image/webp")).toBe("image/webp")
+    expect(libraryUploadMimeTypeSchema.safeParse("image/svg+xml").success).toBe(false)
+    expect(maximumLibraryUploadBytes).toBe(20 * 1024 * 1024)
   })
 })
