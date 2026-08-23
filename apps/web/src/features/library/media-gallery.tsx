@@ -134,8 +134,6 @@ function MediaCard({
 }: MediaCardProps) {
   const [hasImageError, setHasImageError] = useState(false)
   const [isImageLoaded, setIsImageLoaded] = useState(false)
-  const stableAspectRatio =
-    item.width && item.height ? `${item.width} / ${item.height}` : undefined
   const card = (
     <div
       className={`media-unit relative rounded-2xl ${isSelected ? "ring-2 ring-accent ring-offset-2 ring-offset-background" : ""}`}
@@ -185,7 +183,6 @@ function MediaCard({
       >
         <span
           className={`media-card__visual media-card__visual--${item.kind}`}
-          style={{ aspectRatio: stableAspectRatio }}
         >
           {item.thumbnailUrl && !hasImageError ? (
             <img
@@ -417,7 +414,11 @@ function MediaLightbox({
                     </div>
                   )
                 ) : (
-                  <ProgressiveImage item={activeItem} scale={scale} />
+                  <ProgressiveImage
+                    item={activeItem}
+                    key={activeItem.id}
+                    scale={scale}
+                  />
                 )}
               </div>
             </div>

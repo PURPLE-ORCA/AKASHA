@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -95,12 +96,10 @@ describe("MediaGallery selection", () => {
         .getAttribute("aria-pressed")
     ).toBe("true")
     expect(
-      (
-        screen.getByRole("checkbox", {
-          name: "Deselect image reference",
-        }) as HTMLInputElement
-      ).checked
-    ).toBe(true)
+      screen.getByRole("checkbox", {
+        name: "Deselect image reference",
+      })
+    ).toHaveProperty("checked", true)
   })
 })
 
@@ -136,7 +135,7 @@ describe("MediaGallery context menu", () => {
 })
 
 describe("MediaGallery image loading", () => {
-  it("reserves image geometry and limits high-priority previews", () => {
+  it("keeps intrinsic image geometry and limits high-priority previews", () => {
     renderGallery([
       createItem("image", {
         height: 800,
@@ -158,7 +157,8 @@ describe("MediaGallery image loading", () => {
     expect(
       images.every((image) => image.getAttribute("decoding") === "async")
     ).toBe(true)
-    expect(images[0]?.parentElement?.style.aspectRatio).toBe("600 / 800")
+    expect(images[0]?.getAttribute("width")).toBe("600")
+    expect(images[0]?.getAttribute("height")).toBe("800")
   })
 
   it("loads the original only after opening an image", () => {
@@ -196,5 +196,38 @@ describe("MediaGallery image loading", () => {
     expect(
       screen.getByRole("button", { name: "Open image reference" })
     ).toBeTruthy()
+  })
+
+  it("ignores a stale decode after keyboard navigation", async () => {
+    let finishFirstDecode: (() => void) | undefined
+    const firstDecode = new Promise<void>((resolve) => {
+      finishFirstDecode = resolve
+    })
+    renderGallery([
+      createItem("image", { id: "first", title: "First" }),
+      createItem("image", {
+        driveFileId: "second-file",
+        id: "second",
+        title: "Second",
+      }),
+    ])
+
+    fireEvent.click(screen.getByRole("button", { name: "Open First" }))
+    const dialog = screen.getByRole("dialog")
+    const firstOriginal = within(dialog).getByRole("img", {
+      name: "First",
+    })
+    Object.defineProperty(firstOriginal, "decode", {
+      configurable: true,
+      value: () => firstDecode,
+    })
+    fireEvent.load(firstOriginal)
+
+    fireEvent.keyDown(window, { key: "ArrowRight" })
+    const secondOriginal = within(dialog).getByRole("img", { name: "Second" })
+
+    await act(async () => finishFirstDecode?.())
+
+    expect(secondOriginal.className).not.toContain("opacity-100")
   })
 })
