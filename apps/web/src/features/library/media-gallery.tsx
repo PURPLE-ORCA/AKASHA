@@ -5,6 +5,7 @@ import {
   ArrowsInSimpleIcon,
   DownloadSimpleIcon,
   FolderSimpleIcon,
+  ImageIcon,
   MinusIcon,
   PlusIcon,
   PlayIcon,
@@ -16,7 +17,7 @@ import type { LibraryItem } from "@akasha/contracts"
 
 const INITIAL_RENDER_COUNT = 48
 const RENDER_BATCH_SIZE = 48
-const PRIORITY_IMAGE_COUNT = 8
+const PRIORITY_IMAGE_COUNT = 2
 
 type MediaGalleryProps = {
   isSelectionMode: boolean
@@ -131,6 +132,10 @@ function MediaCard({
   onSelectionChange,
   priority,
 }: MediaCardProps) {
+  const [hasImageError, setHasImageError] = useState(false)
+  const [isImageLoaded, setIsImageLoaded] = useState(false)
+  const stableAspectRatio =
+    item.width && item.height ? `${item.width} / ${item.height}` : undefined
   const card = (
     <div
       className={`media-unit relative rounded-2xl ${isSelected ? "ring-2 ring-accent ring-offset-2 ring-offset-background" : ""}`}
@@ -178,20 +183,25 @@ function MediaCard({
         }}
         type="button"
       >
-        <span className={`media-card__visual media-card__visual--${item.kind}`}>
-          {item.thumbnailUrl ? (
+        <span
+          className={`media-card__visual media-card__visual--${item.kind}`}
+          style={{ aspectRatio: stableAspectRatio }}
+        >
+          {item.thumbnailUrl && !hasImageError ? (
             <img
               alt={item.title}
+              className={`block w-full opacity-0 transition-opacity duration-150 motion-reduce:transition-none ${isImageLoaded ? "opacity-100" : ""} ${item.kind === "video" ? "h-full object-cover" : "h-auto"}`}
+              decoding="async"
               fetchPriority={priority ? "high" : "auto"}
               height={item.height}
               loading={priority ? "eager" : "lazy"}
+              onError={() => setHasImageError(true)}
+              onLoad={() => setIsImageLoaded(true)}
               src={item.thumbnailUrl}
               width={item.width}
             />
           ) : (
-            <span aria-hidden="true" className="media-card__placeholder">
-              <PlayIcon weight="fill" />
-            </span>
+            <MediaPlaceholder kind={item.kind} />
           )}
           {item.kind === "video" && item.thumbnailUrl ? (
             <span aria-hidden="true" className="media-card__play">
@@ -407,12 +417,7 @@ function MediaLightbox({
                     </div>
                   )
                 ) : (
-                  <img
-                    alt={activeItem.title}
-                    className="lightbox__image"
-                    src={activeItem.thumbnailUrl}
-                    style={{ "--lightbox-scale": scale } as React.CSSProperties}
-                  />
+                  <ProgressiveImage item={activeItem} scale={scale} />
                 )}
               </div>
             </div>
@@ -420,6 +425,73 @@ function MediaLightbox({
         </Modal.Dialog>
       </Modal.Container>
     </Modal.Backdrop>
+  )
+}
+
+function ProgressiveImage({
+  item,
+  scale,
+}: {
+  item: LibraryItem
+  scale: number
+}) {
+  const [hasOriginalError, setHasOriginalError] = useState(false)
+  const [hasPreviewError, setHasPreviewError] = useState(false)
+  const [isOriginalReady, setIsOriginalReady] = useState(false)
+  const originalUrl = `/api/media/${encodeURIComponent(item.driveFileId)}`
+
+  async function revealOriginal(image: HTMLImageElement) {
+    try {
+      await image.decode()
+    } catch {
+      // The load event already confirms a renderable response.
+    }
+    setIsOriginalReady(true)
+  }
+
+  return (
+    <div
+      className="grid origin-center place-items-center transition-transform motion-reduce:transition-none"
+      style={{ transform: `scale(${scale})` }}
+    >
+      {item.thumbnailUrl && !hasPreviewError ? (
+        <img
+          alt=""
+          className="block max-h-[calc(100dvh-6rem)] max-w-[min(100%,100rem)] object-contain [grid-area:1/1]"
+          decoding="async"
+          onError={() => setHasPreviewError(true)}
+          src={item.thumbnailUrl}
+        />
+      ) : (
+        <span className="grid min-h-64 min-w-64 place-items-center text-muted [grid-area:1/1]">
+          <ImageIcon aria-hidden="true" size={48} />
+        </span>
+      )}
+      {!hasOriginalError ? (
+        <img
+          alt={item.title}
+          className={`block max-h-[calc(100dvh-6rem)] max-w-[min(100%,100rem)] object-contain opacity-0 transition-opacity duration-150 [grid-area:1/1] motion-reduce:transition-none ${isOriginalReady ? "opacity-100" : ""}`}
+          decoding="async"
+          fetchPriority="high"
+          onError={() => setHasOriginalError(true)}
+          onLoad={(event) => void revealOriginal(event.currentTarget)}
+          src={originalUrl}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+function MediaPlaceholder({ kind }: { kind: LibraryItem["kind"] }) {
+  const Icon = kind === "video" ? PlayIcon : ImageIcon
+
+  return (
+    <span
+      aria-hidden="true"
+      className="grid h-full min-h-40 w-full place-items-center text-muted"
+    >
+      <Icon size={44} weight={kind === "video" ? "fill" : "regular"} />
+    </span>
   )
 }
 

@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react"
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import type { LibraryItem } from "@akasha/contracts"
 
@@ -25,7 +31,7 @@ function createItem(
     sourceLabel: "example.com",
     sourceUrl: `https://example.com/${kind}`,
     storageMode: "binary",
-    thumbnailUrl: `/api/media/${kind}-file`,
+    thumbnailUrl: `/api/media/${kind}-preview?preview=signed-token`,
     title: `${kind} reference`,
     ...overrides,
   }
@@ -89,9 +95,11 @@ describe("MediaGallery selection", () => {
         .getAttribute("aria-pressed")
     ).toBe("true")
     expect(
-      screen.getByRole("checkbox", {
-        name: "Deselect image reference",
-      }).checked
+      (
+        screen.getByRole("checkbox", {
+          name: "Deselect image reference",
+        }) as HTMLInputElement
+      ).checked
     ).toBe(true)
   })
 })
@@ -124,5 +132,69 @@ describe("MediaGallery context menu", () => {
 
     expect(await screen.findByRole("menuitem", { name: "Move to folder" }))
     expect(screen.queryByRole("menuitem", { name: "Download" })).toBeNull()
+  })
+})
+
+describe("MediaGallery image loading", () => {
+  it("reserves image geometry and limits high-priority previews", () => {
+    renderGallery([
+      createItem("image", {
+        height: 800,
+        id: "first",
+        title: "First",
+        width: 600,
+      }),
+      createItem("image", { id: "second", title: "Second" }),
+      createItem("image", { id: "third", title: "Third" }),
+    ])
+
+    const images = screen.getAllByRole("img")
+    expect(images).toHaveLength(3)
+    expect(images[0]?.getAttribute("fetchpriority")).toBe("high")
+    expect(images[0]?.getAttribute("loading")).toBe("eager")
+    expect(images[1]?.getAttribute("fetchpriority")).toBe("high")
+    expect(images[2]?.getAttribute("fetchpriority")).toBe("auto")
+    expect(images[2]?.getAttribute("loading")).toBe("lazy")
+    expect(
+      images.every((image) => image.getAttribute("decoding") === "async")
+    ).toBe(true)
+    expect(images[0]?.parentElement?.style.aspectRatio).toBe("600 / 800")
+  })
+
+  it("loads the original only after opening an image", () => {
+    renderGallery([createItem("image")])
+
+    expect(screen.getByRole("img").getAttribute("src")).toContain(
+      "image-preview?preview="
+    )
+    expect(
+      document.querySelector('img[src="/api/media/image-file"]')
+    ).toBeNull()
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Open image reference" })
+    )
+
+    const dialog = screen.getByRole("dialog")
+    const original = within(dialog).getByRole("img", {
+      name: "image reference",
+    })
+    expect(original.getAttribute("src")).toBe("/api/media/image-file")
+    expect(
+      dialog.querySelector(
+        'img[src="/api/media/image-preview?preview=signed-token"]'
+      )
+    ).toBeTruthy()
+  })
+
+  it("keeps a clean fallback when a preview fails", () => {
+    renderGallery([createItem("image")])
+
+    fireEvent.error(screen.getByRole("img"))
+
+    expect(screen.queryByRole("img")).toBeNull()
+    expect(
+      screen.getByRole("button", { name: "Open image reference" })
+    ).toBeTruthy()
   })
 })
