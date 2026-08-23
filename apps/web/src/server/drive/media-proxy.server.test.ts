@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   createDriveMediaRequestHeaders,
   createMediaProxyResponse,
+  createThumbnailProxyResponse,
 } from "./media-proxy.server"
 
 describe("Drive media proxy", () => {
@@ -47,5 +48,22 @@ describe("Drive media proxy", () => {
     )
     expect(response.status).toBe(304)
     expect(response.body).toBeNull()
+  })
+
+  it("caches private thumbnail previews for repeat visits", () => {
+    const response = createThumbnailProxyResponse(
+      new Response("image", {
+        headers: {
+          ETag: '"thumbnail-etag"',
+          "Content-Type": "image/webp",
+        },
+      })
+    )
+
+    expect(response.headers.get("Cache-Control")).toBe(
+      "private, max-age=3600, stale-while-revalidate=86400"
+    )
+    expect(response.headers.get("Content-Type")).toBe("image/webp")
+    expect(response.headers.get("ETag")).toBe('"thumbnail-etag"')
   })
 })

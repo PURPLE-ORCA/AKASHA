@@ -7,6 +7,7 @@ import {
   FOLDER_MIME_TYPE,
   listStillroomFiles,
 } from "./drive.server"
+import { createDriveThumbnailUrl } from "./drive-thumbnail.server"
 
 export type DriveLibrarySnapshot = {
   folders: LibraryFolder[]
@@ -32,6 +33,9 @@ export function buildDriveLibrarySnapshot(
   files: drive_v3.Schema$File[]
 ): DriveLibrarySnapshot {
   const filesByParent = new Map<string, drive_v3.Schema$File[]>()
+  const filesById = new Map(
+    files.flatMap((file) => (file.id ? [[file.id, file] as const] : []))
+  )
 
   for (const file of files) {
     for (const parentId of file.parents ?? []) {
@@ -69,7 +73,10 @@ export function buildDriveLibrarySnapshot(
         continue
       }
 
-      const item = mapDriveFileToLibraryItem(file, current.driveFolderId)
+      const item = mapDriveFileToLibraryItem(file, current.driveFolderId, {
+        createThumbnailUrl: createDefaultThumbnailUrl,
+        filesById,
+      })
       if (item) items.push(item)
     }
   }
@@ -79,7 +86,8 @@ export function buildDriveLibrarySnapshot(
 
 export function mapDriveFileToLibraryItem(
   file: drive_v3.Schema$File,
-  folderId: string
+  folderId: string,
+  thumbnailContext?: ThumbnailContext
 ) {
   if (file.appProperties?.stillroomType === "poster") return null
 
@@ -110,7 +118,12 @@ export function mapDriveFileToLibraryItem(
     storageMode:
       captureMetadata.storageMode ??
       (file.mimeType === "application/json" ? "reference" : "binary"),
-    thumbnailUrl: getThumbnailUrl(file, captureMetadata),
+    thumbnailUrl: getThumbnailUrl(
+      file,
+      captureMetadata,
+      folderId,
+      thumbnailContext
+    ),
     title: captureMetadata.title ?? removeFileExtension(file.name),
     width:
       file.imageMediaMetadata?.width ??
@@ -133,17 +146,68 @@ type CaptureMetadata = {
   width?: number
 }
 
+type ThumbnailUrlFactory = (
+  fileId: string,
+  thumbnailUrl: string
+) => string | undefined
+
+type ThumbnailContext = {
+  createThumbnailUrl: ThumbnailUrlFactory
+  filesById: ReadonlyMap<string, drive_v3.Schema$File>
+}
+
 function getThumbnailUrl(
   file: drive_v3.Schema$File,
-  captureMetadata: CaptureMetadata
+  captureMetadata: CaptureMetadata,
+  folderId: string,
+  thumbnailContext?: ThumbnailContext
 ) {
-  if (file.appProperties?.stillroomKind !== "video") {
-    return `/api/media/${file.id}`
+  if (!thumbnailContext) {
+    if (file.appProperties?.stillroomKind !== "video") {
+      return `/api/media/${file.id}`
+    }
+
+    return captureMetadata.posterDriveFileId
+      ? `/api/media/${captureMetadata.posterDriveFileId}`
+      : captureMetadata.thumbnailUrl
   }
 
-  return captureMetadata.posterDriveFileId
-    ? `/api/media/${captureMetadata.posterDriveFileId}`
-    : captureMetadata.thumbnailUrl
+  if (file.appProperties?.stillroomKind !== "video") {
+    return file.id && file.thumbnailLink
+      ? thumbnailContext.createThumbnailUrl(file.id, file.thumbnailLink)
+      : undefined
+  }
+
+  const poster = captureMetadata.posterDriveFileId
+    ? thumbnailContext.filesById.get(captureMetadata.posterDriveFileId)
+    : undefined
+  const validPoster =
+    poster?.id &&
+    poster.thumbnailLink &&
+    poster.parents?.includes(folderId) &&
+    poster.appProperties?.stillroomType === "poster"
+      ? poster
+      : undefined
+
+  if (validPoster?.id && validPoster.thumbnailLink) {
+    return thumbnailContext.createThumbnailUrl(
+      validPoster.id,
+      validPoster.thumbnailLink
+    )
+  }
+
+  if (file.id && file.thumbnailLink) {
+    return thumbnailContext.createThumbnailUrl(file.id, file.thumbnailLink)
+  }
+
+  return captureMetadata.thumbnailUrl
+}
+
+function createDefaultThumbnailUrl(fileId: string, thumbnailUrl: string) {
+  const secret = process.env.SESSION_SECRET
+  if (!secret) return undefined
+
+  return createDriveThumbnailUrl(fileId, thumbnailUrl, { secret })
 }
 
 function parseByteSize(size?: string | null) {

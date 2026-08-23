@@ -25,8 +25,22 @@ export function createDriveMediaRequestHeaders(
 }
 
 export function createMediaProxyResponse(driveResponse: Response) {
+  return createProxyResponse(
+    driveResponse,
+    "private, max-age=300, stale-while-revalidate=3600"
+  )
+}
+
+export function createThumbnailProxyResponse(driveResponse: Response) {
+  return createProxyResponse(
+    driveResponse,
+    "private, max-age=3600, stale-while-revalidate=86400"
+  )
+}
+
+function createProxyResponse(driveResponse: Response, cacheControl: string) {
   const responseHeaders = new Headers({
-    "Cache-Control": "private, max-age=300, stale-while-revalidate=3600",
+    "Cache-Control": cacheControl,
     "Content-Type":
       driveResponse.headers.get("Content-Type") ?? "application/octet-stream",
     Vary: "Cookie, Authorization, Range",
