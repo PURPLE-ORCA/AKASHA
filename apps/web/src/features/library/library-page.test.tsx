@@ -1,11 +1,28 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen } from "@testing-library/react"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { LibraryPage } from "./library-page"
 
-afterEach(cleanup)
+vi.mock("@tanstack/react-router", async () => {
+  const { forwardRef } = await import("react")
+
+  return {
+    Link: forwardRef<
+      HTMLAnchorElement,
+      React.ComponentProps<"a"> & { search?: unknown; to?: string }
+    >(function TestLink({ search: _search, to = "/", ...props }, ref) {
+      return <a {...props} href={to} ref={ref} />
+    }),
+    useNavigate: () => vi.fn(),
+  }
+})
+
+afterEach(() => {
+  cleanup()
+  vi.restoreAllMocks()
+})
 
 describe("LibraryPage", () => {
   it("shows an empty library with a first-folder action", () => {
@@ -50,6 +67,70 @@ describe("LibraryPage", () => {
     expect(
       screen.getByRole("radio", { name: "All" }).getAttribute("aria-checked")
     ).toBe("true")
+  })
+
+  it("returns to the parent folder from both library views with ArrowDown", () => {
+    const onFolderNavigate = vi.fn()
+
+    render(
+      <LibraryPage
+        initialSnapshot={{
+          folders: [
+            { id: "parent", name: "Parent", parentId: null },
+            { id: "current", name: "Current", parentId: "parent" },
+          ],
+          items: [],
+          rootFolderId: "root",
+        }}
+        onFolderNavigate={onFolderNavigate}
+        requestedFolderId="current"
+      />
+    )
+
+    fireEvent.keyDown(window, { key: "ArrowDown" })
+    expect(onFolderNavigate).toHaveBeenCalledWith("parent")
+
+    fireEvent.keyDown(window, { key: "s" })
+    expect(screen.getByText("No folders here yet.")).toBeTruthy()
+    fireEvent.keyDown(window, { key: "ArrowDown" })
+
+    expect(onFolderNavigate).toHaveBeenNthCalledWith(2, "parent")
+  })
+
+  it("opens the focused media folder with ArrowUp from the All view", () => {
+    const onFolderNavigate = vi.fn()
+
+    render(
+      <LibraryPage
+        initialSnapshot={{
+          folders: [{ id: "references", name: "References", parentId: null }],
+          items: [
+            {
+              capturedAt: "2026-08-15T10:00:00.000Z",
+              driveFileId: "drive-item",
+              folderId: "references",
+              id: "item",
+              kind: "image",
+              storageMode: "binary",
+              sourceLabel: "example.com",
+              sourceUrl: "https://example.com/source",
+              thumbnailUrl: "/api/media/drive-item",
+              title: "Connected reference",
+            },
+          ],
+          rootFolderId: "root",
+        }}
+        onFolderNavigate={onFolderNavigate}
+      />
+    )
+
+    const media = screen.getByRole("button", {
+      name: "Open Connected reference",
+    })
+    media.focus()
+    fireEvent.keyDown(media, { key: "ArrowUp" })
+
+    expect(onFolderNavigate).toHaveBeenCalledWith("references")
   })
 
   it("renders connected images as media cards", () => {

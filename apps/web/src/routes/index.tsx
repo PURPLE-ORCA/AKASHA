@@ -1,4 +1,9 @@
-import { Await, createFileRoute, useRouter } from "@tanstack/react-router"
+import {
+  Await,
+  createFileRoute,
+  useNavigate,
+  useRouter,
+} from "@tanstack/react-router"
 import { BoneSuspense } from "boneyard-js/react"
 import { z } from "zod"
 
@@ -20,6 +25,7 @@ export const Route = createFileRoute("/")({
 })
 
 function LibraryRoute() {
+  const navigate = useNavigate({ from: "/" })
   const router = useRouter()
   const { libraryState } = Route.useLoaderData()
   const { __bones, connection, folder } = Route.useSearch()
@@ -31,6 +37,12 @@ function LibraryRoute() {
         ) : (
           <LibraryPage
             initialSnapshot={resolvedLibraryState.snapshot}
+            onFolderNavigate={(folderId) => {
+              void navigate({
+                search: (previous) => ({ ...previous, folder: folderId }),
+                to: "/",
+              })
+            }}
             onRefresh={() => router.invalidate()}
             requestedFolderId={folder}
           />

@@ -30,12 +30,14 @@ import {
 
 type LibraryPageProps = {
   initialSnapshot: DriveLibrarySnapshot
+  onFolderNavigate?: (folderId?: string) => void
   onRefresh?: () => Promise<void>
   requestedFolderId?: string
 }
 
 export function LibraryPage({
   initialSnapshot,
+  onFolderNavigate,
   onRefresh = async () => {},
   requestedFolderId,
 }: LibraryPageProps) {
@@ -59,6 +61,9 @@ export function LibraryPage({
     [folders, selectedFolderId]
   )
   const selectedFolderName = folderPath.at(-1)?.name ?? "Akasha"
+  const parentFolderId = folders.find(
+    (folder) => folder.id === selectedFolderId
+  )?.parentId
   const visibleItems = useMemo(
     () =>
       selectedFolderId === rootFolderId
@@ -138,6 +143,16 @@ export function LibraryPage({
       if (isTyping || event.metaKey || event.ctrlKey || event.altKey) return
 
       switch (event.key.toLowerCase()) {
+        case "arrowdown":
+          if (
+            !target?.closest('[role="dialog"]') &&
+            selectedFolderId !== rootFolderId &&
+            onFolderNavigate
+          ) {
+            event.preventDefault()
+            onFolderNavigate(parentFolderId ?? undefined)
+          }
+          break
         case "d":
           event.preventDefault()
           setTheme((current) =>
@@ -159,7 +174,13 @@ export function LibraryPage({
 
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
-  }, [activeTab])
+  }, [
+    activeTab,
+    onFolderNavigate,
+    parentFolderId,
+    rootFolderId,
+    selectedFolderId,
+  ])
 
   async function createFolder(name: string) {
     await createLibraryFolder({
@@ -209,6 +230,11 @@ export function LibraryPage({
                   <MediaGallery
                     items={filteredItems}
                     onMoveItem={setMoveItemId}
+                    onOpenFolder={(folderId) => {
+                      if (folderId !== selectedFolderId && onFolderNavigate) {
+                        onFolderNavigate(folderId)
+                      }
+                    }}
                     onRemoveItem={setRemoveItemId}
                   />
                 )

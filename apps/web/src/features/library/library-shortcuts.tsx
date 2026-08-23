@@ -50,6 +50,16 @@ export function LibraryShortcuts() {
                 </Kbd>
               </span>
             </Shortcut>
+            <Shortcut label="Go deeper">
+              <Kbd>
+                <Kbd.Abbr keyValue="up" />
+              </Kbd>
+            </Shortcut>
+            <Shortcut label="Go to parent folder">
+              <Kbd>
+                <Kbd.Abbr keyValue="down" />
+              </Kbd>
+            </Shortcut>
             <Shortcut label="Open folder">
               <span className="shortcut-keys">
                 <Kbd>

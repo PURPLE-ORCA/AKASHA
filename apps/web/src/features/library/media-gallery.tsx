@@ -20,12 +20,14 @@ const PRIORITY_IMAGE_COUNT = 8
 type MediaGalleryProps = {
   items: LibraryItem[]
   onMoveItem: (itemId: string) => void
+  onOpenFolder: (folderId: string) => void
   onRemoveItem: (itemId: string) => void
 }
 
 export function MediaGallery({
   items,
   onMoveItem,
+  onOpenFolder,
   onRemoveItem,
 }: MediaGalleryProps) {
   const displayItems = useMemo(() => items, [items])
@@ -72,6 +74,7 @@ export function MediaGallery({
             key={item.id}
             onMove={() => onMoveItem(item.id)}
             onOpen={() => setActiveIndex(index)}
+            onOpenFolder={() => onOpenFolder(item.folderId)}
             onRemove={() => onRemoveItem(item.id)}
             priority={index < PRIORITY_IMAGE_COUNT}
           />
@@ -97,6 +100,7 @@ type MediaCardProps = {
   item: LibraryItem
   onMove: () => void
   onOpen: () => void
+  onOpenFolder: () => void
   onRemove: () => void
   priority: boolean
 }
@@ -105,6 +109,7 @@ function MediaCard({
   item,
   onMove,
   onOpen,
+  onOpenFolder,
   onRemove,
   priority,
 }: MediaCardProps) {
@@ -116,6 +121,20 @@ function MediaCard({
             aria-label={`Open ${item.title}`}
             className="media-card"
             onClick={onOpen}
+            onKeyDown={(event) => {
+              if (
+                event.key !== "ArrowUp" ||
+                event.altKey ||
+                event.ctrlKey ||
+                event.metaKey ||
+                event.repeat
+              ) {
+                return
+              }
+
+              event.preventDefault()
+              onOpenFolder()
+            }}
             type="button"
           >
             <span

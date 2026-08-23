@@ -53,6 +53,10 @@ export function FolderGallery({
                 event.preventDefault()
                 moveFocus(index, 1)
               }
+              if (event.key === "ArrowUp") {
+                event.preventDefault()
+                event.currentTarget.click()
+              }
               if (event.key === " ") {
                 event.preventDefault()
                 event.currentTarget.click()

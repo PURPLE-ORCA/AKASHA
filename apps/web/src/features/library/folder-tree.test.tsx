@@ -71,7 +71,7 @@ describe("getFolderPreviews", () => {
 })
 
 describe("FolderGallery", () => {
-  it("moves focus with arrows and activates the focused folder with space", () => {
+  it("moves across and enters the folder tree with arrow keys", () => {
     render(
       <FolderGallery folders={folders} items={[]} libraryFolders={folders} />
     )
@@ -86,7 +86,10 @@ describe("FolderGallery", () => {
     expect(document.activeElement).toBe(parent)
 
     const click = vi.spyOn(parent, "click")
-    fireEvent.keyDown(parent, { key: " " })
+    fireEvent.keyDown(parent, { key: "ArrowUp" })
     expect(click).toHaveBeenCalledOnce()
+
+    fireEvent.keyDown(parent, { key: " " })
+    expect(click).toHaveBeenCalledTimes(2)
   })
 })
