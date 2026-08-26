@@ -67,7 +67,7 @@ export function MediaGallery({
 
   if (displayItems.length === 0) {
     return (
-      <div className="gallery-empty">
+      <div className="grid min-h-[28rem] place-items-center">
         <Typography color="muted">No media here yet.</Typography>
       </div>
     )
@@ -75,7 +75,10 @@ export function MediaGallery({
 
   return (
     <>
-      <div aria-label="Saved media" className="media-grid">
+      <div
+        aria-label="Saved media"
+        className="columns-1 gap-4 sm:columns-2 min-[56rem]:columns-3 min-[76rem]:columns-4 min-[100rem]:columns-5"
+      >
         {displayItems.slice(0, visibleCount).map((item, index) => (
           <MediaCard
             isSelected={selectedItemIds.has(item.id)}
@@ -94,11 +97,7 @@ export function MediaGallery({
         ))}
       </div>
       {visibleCount < displayItems.length ? (
-        <div
-          aria-hidden="true"
-          className="gallery-sentinel"
-          ref={loadMoreRef}
-        />
+        <div aria-hidden="true" className="h-px" ref={loadMoreRef} />
       ) : null}
       <MediaLightbox
         activeIndex={activeIndex}
@@ -136,7 +135,7 @@ function MediaCard({
   const [isImageLoaded, setIsImageLoaded] = useState(false)
   const card = (
     <div
-      className={`media-unit relative rounded-2xl ${isSelected ? "ring-2 ring-accent ring-offset-2 ring-offset-background" : ""}`}
+      className={`relative mb-4 break-inside-avoid rounded-2xl ${isSelected ? "ring-2 ring-accent ring-offset-2 ring-offset-background" : ""}`}
     >
       {isSelectionMode ? (
         <div className="absolute top-3 left-3 z-10 rounded-lg bg-surface/90 p-1 shadow-surface backdrop-blur-sm">
@@ -160,10 +159,13 @@ function MediaCard({
             : `Open ${item.title}`
         }
         aria-pressed={isSelectionMode ? isSelected : undefined}
-        className="media-card"
+        className="block w-full cursor-pointer appearance-none overflow-hidden rounded-2xl border-0 bg-transparent p-0 text-inherit focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
         onClick={
           isSelectionMode ? () => onSelectionChange(!isSelected) : onOpen
         }
+        onFocus={() => {
+          if (!isSelectionMode) preloadOriginalImage(item)
+        }}
         onKeyDown={(event) => {
           if (
             isSelectionMode ||
@@ -179,10 +181,13 @@ function MediaCard({
           event.preventDefault()
           onOpenFolder()
         }}
+        onPointerEnter={() => {
+          if (!isSelectionMode) preloadOriginalImage(item)
+        }}
         type="button"
       >
         <span
-          className={`media-card__visual media-card__visual--${item.kind}`}
+          className={`relative block w-full overflow-hidden bg-surface-secondary ${item.kind === "video" ? "aspect-video min-h-40" : ""}`}
         >
           {item.thumbnailUrl && !hasImageError ? (
             <img
@@ -201,12 +206,15 @@ function MediaCard({
             <MediaPlaceholder kind={item.kind} />
           )}
           {item.kind === "video" && item.thumbnailUrl ? (
-            <span aria-hidden="true" className="media-card__play">
-              <PlayIcon weight="fill" />
+            <span
+              aria-hidden="true"
+              className="absolute top-1/2 left-1/2 grid size-13 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-[oklch(0.12_0_0/70%)] text-white backdrop-blur-sm"
+            >
+              <PlayIcon className="ml-0.5" size={20} weight="fill" />
             </span>
           ) : null}
           {item.kind === "video" && item.durationSeconds !== undefined ? (
-            <span className="media-card__duration">
+            <span className="absolute right-2.5 bottom-2.5 rounded-md bg-[oklch(0.12_0_0/76%)] px-2 py-0.5 text-xs leading-tight text-white tabular-nums">
               {formatDuration(item.durationSeconds)}
             </span>
           ) : null}
@@ -219,7 +227,11 @@ function MediaCard({
 
   return (
     <ContextMenu>
-      <ContextMenu.Trigger>{card}</ContextMenu.Trigger>
+      <ContextMenu.Trigger
+        render={(props) => <div {...props} className="block w-full" />}
+      >
+        {card}
+      </ContextMenu.Trigger>
       <ContextMenu.Popover>
         <ContextMenu.Menu
           aria-label={`Manage ${item.title}`}
@@ -325,8 +337,8 @@ function MediaLightbox({
         <Modal.Dialog aria-label={activeItem?.title ?? "Media preview"}>
           <Modal.CloseTrigger />
           {activeItem ? (
-            <div className="lightbox">
-              <div className="lightbox__toolbar">
+            <div className="grid min-h-dvh grid-rows-[auto_minmax(0,1fr)] bg-background">
+              <div className="flex items-center justify-center gap-2 p-3">
                 <Button
                   aria-label="Previous media"
                   isDisabled={!canGoBack}
@@ -386,11 +398,11 @@ function MediaLightbox({
                   <ArrowRightIcon aria-hidden="true" />
                 </Button>
               </div>
-              <div className="lightbox__stage">
+              <div className="grid min-h-0 place-items-center overflow-auto overscroll-contain p-4">
                 {activeItem.kind === "video" ? (
                   activeItem.storageMode !== "reference" ? (
                     <video
-                      className="lightbox__video"
+                      className="block max-h-[calc(100dvh-6rem)] w-[min(100%,90rem)] bg-black"
                       controls
                       key={activeItem.id}
                       playsInline
@@ -399,12 +411,18 @@ function MediaLightbox({
                       src={`/api/media/${activeItem.driveFileId}`}
                     />
                   ) : (
-                    <div className="lightbox__reference">
-                      <PlayIcon aria-hidden="true" weight="fill" />
+                    <div className="grid max-w-[26rem] justify-items-center gap-4 text-center">
+                      <PlayIcon
+                        aria-hidden="true"
+                        className="text-muted"
+                        size={48}
+                        weight="fill"
+                      />
                       <Typography color="muted">
                         This clip is kept as a link to its original source.
                       </Typography>
                       <a
+                        className="font-semibold text-link underline-offset-4 hover:underline"
                         href={activeItem.sourceUrl}
                         rel="noreferrer"
                         target="_blank"
@@ -441,15 +459,6 @@ function ProgressiveImage({
   const [isOriginalReady, setIsOriginalReady] = useState(false)
   const originalUrl = `/api/media/${encodeURIComponent(item.driveFileId)}`
 
-  async function revealOriginal(image: HTMLImageElement) {
-    try {
-      await image.decode()
-    } catch {
-      // The load event already confirms a renderable response.
-    }
-    setIsOriginalReady(true)
-  }
-
   return (
     <div
       className="grid origin-center place-items-center transition-transform motion-reduce:transition-none"
@@ -460,8 +469,10 @@ function ProgressiveImage({
           alt=""
           className="block max-h-[calc(100dvh-6rem)] max-w-[min(100%,100rem)] object-contain [grid-area:1/1]"
           decoding="async"
+          height={item.height}
           onError={() => setHasPreviewError(true)}
           src={item.thumbnailUrl}
+          width={item.width}
         />
       ) : (
         <span className="grid min-h-64 min-w-64 place-items-center text-muted [grid-area:1/1]">
@@ -474,13 +485,29 @@ function ProgressiveImage({
           className={`block max-h-[calc(100dvh-6rem)] max-w-[min(100%,100rem)] object-contain opacity-0 transition-opacity duration-150 [grid-area:1/1] motion-reduce:transition-none ${isOriginalReady ? "opacity-100" : ""}`}
           decoding="async"
           fetchPriority="high"
+          height={item.height}
           onError={() => setHasOriginalError(true)}
-          onLoad={(event) => void revealOriginal(event.currentTarget)}
+          onLoad={() => setIsOriginalReady(true)}
           src={originalUrl}
+          width={item.width}
         />
       ) : null}
     </div>
   )
+}
+
+const preloadedOriginalUrls = new Set<string>()
+
+function preloadOriginalImage(item: LibraryItem) {
+  if (item.kind !== "image") return
+
+  const originalUrl = `/api/media/${encodeURIComponent(item.driveFileId)}`
+  if (preloadedOriginalUrls.has(originalUrl)) return
+
+  preloadedOriginalUrls.add(originalUrl)
+  const image = new Image()
+  image.decoding = "async"
+  image.src = originalUrl
 }
 
 function MediaPlaceholder({ kind }: { kind: LibraryItem["kind"] }) {

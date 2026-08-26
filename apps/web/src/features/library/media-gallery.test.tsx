@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 
 import {
-  act,
   cleanup,
   fireEvent,
   render,
@@ -135,6 +134,16 @@ describe("MediaGallery context menu", () => {
 })
 
 describe("MediaGallery image loading", () => {
+  it("fills each masonry column through the context-menu trigger", () => {
+    renderGallery([createItem("image")])
+
+    expect(
+      screen
+        .getByRole("button", { name: "Open image reference" })
+        .closest('[data-slot="context-menu-trigger"]')?.className
+    ).toContain("w-full")
+  })
+
   it("keeps intrinsic image geometry and limits high-priority previews", () => {
     renderGallery([
       createItem("image", {
@@ -187,6 +196,54 @@ describe("MediaGallery image loading", () => {
     ).toBeTruthy()
   })
 
+  it("sizes the lightbox preview from the original image geometry", () => {
+    renderGallery([
+      createItem("image", {
+        height: 1200,
+        width: 1600,
+      }),
+    ])
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Open image reference" })
+    )
+
+    const dialog = screen.getByRole("dialog")
+    const preview = dialog.querySelector(
+      'img[src="/api/media/image-preview?preview=signed-token"]'
+    )
+    expect(preview?.getAttribute("width")).toBe("1600")
+    expect(preview?.getAttribute("height")).toBe("1200")
+  })
+
+  it("starts loading the original when pointer intent is clear", () => {
+    const requestedUrls: string[] = []
+    const OriginalImage = window.Image
+    vi.stubGlobal(
+      "Image",
+      class {
+        decoding = "auto"
+
+        set src(value: string) {
+          requestedUrls.push(value)
+        }
+      }
+    )
+    renderGallery([
+      createItem("image", {
+        driveFileId: "intent image",
+        id: "intent-image",
+      }),
+    ])
+
+    fireEvent.pointerEnter(
+      screen.getByRole("button", { name: "Open image reference" })
+    )
+
+    expect(requestedUrls).toEqual(["/api/media/intent%20image"])
+    vi.stubGlobal("Image", OriginalImage)
+  })
+
   it("keeps a clean fallback when a preview fails", () => {
     renderGallery([createItem("image")])
 
@@ -198,11 +255,7 @@ describe("MediaGallery image loading", () => {
     ).toBeTruthy()
   })
 
-  it("ignores a stale decode after keyboard navigation", async () => {
-    let finishFirstDecode: (() => void) | undefined
-    const firstDecode = new Promise<void>((resolve) => {
-      finishFirstDecode = resolve
-    })
+  it("resets original readiness after keyboard navigation", () => {
     renderGallery([
       createItem("image", { id: "first", title: "First" }),
       createItem("image", {
@@ -217,16 +270,10 @@ describe("MediaGallery image loading", () => {
     const firstOriginal = within(dialog).getByRole("img", {
       name: "First",
     })
-    Object.defineProperty(firstOriginal, "decode", {
-      configurable: true,
-      value: () => firstDecode,
-    })
     fireEvent.load(firstOriginal)
 
     fireEvent.keyDown(window, { key: "ArrowRight" })
     const secondOriginal = within(dialog).getByRole("img", { name: "Second" })
-
-    await act(async () => finishFirstDecode?.())
 
     expect(secondOriginal.className).not.toContain("opacity-100")
   })
