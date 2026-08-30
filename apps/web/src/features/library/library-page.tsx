@@ -14,6 +14,11 @@ import {
 import type { ThemePreference } from "@/features/theme/theme"
 import { FolderGallery } from "./folder-tree"
 import {
+  MoveFolderDialog,
+  RemoveFolderDialog,
+  RenameFolderDialog,
+} from "./folder-action-dialogs"
+import {
   MoveItemsDialog,
   NewFolderDialog,
   RemoveItemsDialog,
@@ -21,6 +26,10 @@ import {
 import { LibraryBulkActions } from "./library-bulk-actions"
 import { LibraryCommandPalette } from "./library-command-palette"
 import { LibraryEmptyState } from "./library-empty-state"
+import {
+  getFolderMoveDestinations,
+  getFolderRemovalSummary,
+} from "./library-folder-actions"
 import { filterLibraryItems } from "./library-items"
 import type { LibrarySortOrder } from "./library-items"
 import { LibraryToolbar } from "./library-toolbar"
@@ -29,8 +38,11 @@ import type { LibraryUploaderHandle } from "./library-upload"
 import { MediaGallery } from "./media-gallery"
 import {
   createLibraryFolder,
+  moveLibraryFolder,
   moveLibraryItems,
+  removeLibraryFolder,
   removeLibraryItems,
+  renameLibraryFolder,
 } from "./library.functions"
 
 type LibraryPageProps = {
@@ -55,6 +67,11 @@ export function LibraryPage({
   const [commandOpen, setCommandOpen] = useState(false)
   const [createFolderOpen, setCreateFolderOpen] = useState(false)
   const [isSelectionMode, setIsSelectionMode] = useState(false)
+  const [folderToMove, setFolderToMove] = useState<LibraryFolder | null>(null)
+  const [folderToRemove, setFolderToRemove] =
+    useState<LibraryFolder | null>(null)
+  const [folderToRename, setFolderToRename] =
+    useState<LibraryFolder | null>(null)
   const [moveItemIds, setMoveItemIds] = useState<string[]>([])
   const [removeItemIds, setRemoveItemIds] = useState<string[]>([])
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set())
@@ -116,6 +133,15 @@ export function LibraryPage({
         !movingItems.every((item) => item.folderId === folder.id)
     )
   }, [folders, items, moveItemIds, rootFolderId])
+  const folderMoveDestinations = useMemo(
+    () =>
+      getFolderMoveDestinations(folders, rootFolderId, folderToMove),
+    [folderToMove, folders, rootFolderId]
+  )
+  const folderRemovalSummary = useMemo(
+    () => getFolderRemovalSummary(folders, items, folderToRemove),
+    [folderToRemove, folders, items]
+  )
 
   useEffect(() => {
     const savedTheme = window.localStorage.getItem("stillroom-theme")
@@ -229,6 +255,28 @@ export function LibraryPage({
     await createLibraryFolder({
       data: { name, parentFolderId: selectedFolderId },
     })
+    await onRefresh()
+  }
+
+  async function renameFolder(name: string) {
+    if (!folderToRename) return
+    await renameLibraryFolder({
+      data: { folderId: folderToRename.id, name },
+    })
+    await onRefresh()
+  }
+
+  async function moveFolder(destinationFolderId: string) {
+    if (!folderToMove) return
+    await moveLibraryFolder({
+      data: { destinationFolderId, folderId: folderToMove.id },
+    })
+    await onRefresh()
+  }
+
+  async function removeFolder() {
+    if (!folderToRemove) return
+    await removeLibraryFolder({ data: { folderId: folderToRemove.id } })
     await onRefresh()
   }
 
@@ -346,6 +394,9 @@ export function LibraryPage({
                     folders={visibleFolders}
                     items={items}
                     libraryFolders={folders}
+                    onMoveFolder={setFolderToMove}
+                    onRemoveFolder={setFolderToRemove}
+                    onRenameFolder={setFolderToRename}
                   />
                 )}
               </div>
@@ -398,6 +449,30 @@ export function LibraryPage({
         }}
         onRemove={removeItems}
         open={removeItemIds.length > 0}
+      />
+      <RenameFolderDialog
+        folder={folderToRename}
+        onOpenChange={(open) => {
+          if (!open) setFolderToRename(null)
+        }}
+        onRename={renameFolder}
+      />
+      <MoveFolderDialog
+        destinations={folderMoveDestinations}
+        folder={folderToMove}
+        onMove={moveFolder}
+        onOpenChange={(open) => {
+          if (!open) setFolderToMove(null)
+        }}
+      />
+      <RemoveFolderDialog
+        assetCount={folderRemovalSummary.assetCount}
+        folder={folderToRemove}
+        nestedFolderCount={folderRemovalSummary.nestedFolderCount}
+        onOpenChange={(open) => {
+          if (!open) setFolderToRemove(null)
+        }}
+        onRemove={removeFolder}
       />
       <LibraryUploader
         folderId={selectedFolderId}

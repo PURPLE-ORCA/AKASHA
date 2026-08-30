@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { buildFolderTree, getFolderPath } from "./folders"
+import { buildFolderTree, getFolderDescendantIds, getFolderPath } from "./folders"
 import type { LibraryFolder } from "./library"
 
 const folders: LibraryFolder[] = [
@@ -43,5 +43,6 @@ describe("getFolderPath", () => {
     ]
 
     expect(getFolderPath(cyclicFolders, "one")).toHaveLength(2)
+    expect(Array.from(getFolderDescendantIds(cyclicFolders, "one"))).toEqual(["two"])
   })
 })
