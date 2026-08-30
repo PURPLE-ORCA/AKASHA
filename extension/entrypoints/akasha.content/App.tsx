@@ -37,7 +37,7 @@ export default function App({ onClose }: { onClose: () => void }) {
       setDraft(storedDraft?.kind === "image" ? storedDraft : null)
 
       try {
-        const availableFolders = await withTimeout(getFolderOptions(), 3_000)
+        const availableFolders = await withTimeout(getFolderOptions(), 8_000)
         applyFolders(availableFolders, storedFolderId)
         setIsConnected(true)
       } catch {
