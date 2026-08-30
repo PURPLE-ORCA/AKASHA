@@ -27,7 +27,6 @@ const CAPTURE_MENU_ID = "stillroom-capture-media"
 const OUTBOX_ALARM_NAME = "akasha-capture-outbox"
 const DEDUPE_BACKFILL_ALARM_NAME = "akasha-dedupe-backfill"
 const FAILED_NOTIFICATION_PREFIX = "akasha-save-failed:"
-const FOLDER_CACHE_FRESH_MS = 5 * 60 * 1_000
 const CAPTURE_PANEL_FILE = "content-scripts/akasha.js" as ScriptPublicPath
 
 let storageMutation = Promise.resolve()
@@ -380,17 +379,21 @@ async function restoreFailedCapture(captureId: string) {
 }
 
 async function getFolderOptions() {
-  const cached = await folderOptionsCacheStorage.getValue()
-
-  if (cached) {
-    if (Date.now() - cached.cachedAt >= FOLDER_CACHE_FRESH_MS) {
-      void refreshFolderOptions().catch(() => undefined)
-    }
-
-    return cached.folders
+  if (!(await hasAkashaCredential())) {
+    await folderOptionsCacheStorage.removeValue()
+    throw new Error("Connect Akasha to continue.")
   }
 
-  return refreshFolderOptions()
+  const cached = await folderOptionsCacheStorage.getValue()
+
+  try {
+    return await refreshFolderOptions()
+  } catch (error) {
+    const canUseCache = cached && (!(error instanceof AkashaApiError) || error.retryable)
+
+    if (canUseCache) return cached.folders
+    throw error
+  }
 }
 
 function refreshFolderOptions() {

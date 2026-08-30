@@ -12,7 +12,7 @@ import { nitro } from "nitro/vite"
 
 const heroUiProCssPath = `${realpathSync(
   resolve("node_modules/@heroui-pro/react/dist/css/index.css"),
-)}?url`
+)}`
 
 const config = defineConfig(({ mode }) => ({
   resolve: {
