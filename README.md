@@ -65,3 +65,32 @@ bun run build
 ```
 
 Playwright covers the responsive library, search, folder navigation, and selection states in desktop and mobile Chromium.
+
+## Production deployment
+
+Deploy the web project from this repository with these Vercel settings:
+
+- Root Directory: `apps/web`
+- Framework Preset: Other
+- Build Command: `bun run build`
+- Output Directory: leave unset
+- Install Command: leave on automatic detection
+
+Add these Production environment variables in Vercel:
+
+```text
+GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET
+GOOGLE_REDIRECT_URI=https://your-production-domain/api/auth/google/callback
+SESSION_SECRET
+```
+
+`SESSION_SECRET` must contain at least 32 characters. Add the exact production callback URL to the Google Cloud web OAuth client's authorized redirect URIs. If the OAuth consent screen remains in testing, add every intended user as a test user.
+
+After the production origin is final, set `WXT_AKASHA_API_URL` to that origin when building the extension:
+
+```bash
+WXT_AKASHA_API_URL=https://your-production-domain bun run --cwd extension build
+```
+
+For personal use, open `chrome://extensions`, enable Developer mode, choose Load unpacked, and select `extension/.output/chrome-mv3`. Rebuild and click Reload on the extensions page for each update. Chrome Web Store registration is only required for store distribution and automatic updates.

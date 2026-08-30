@@ -11,6 +11,8 @@ import { Segment } from "@heroui-pro/react"
 import type { LibraryFolder } from "@akasha/contracts"
 
 import type { ThemePreference } from "@/features/theme/theme"
+import type { DriveLibraryUser } from "@/server/drive/library.server"
+import { LibraryAccountMenu } from "./library-account-menu"
 import { LibraryShortcuts } from "./library-shortcuts"
 
 type LibraryToolbarProps = {
@@ -25,6 +27,7 @@ type LibraryToolbarProps = {
   onThemeChange: (theme: ThemePreference) => void
   onViewChange: (view: "all" | "folders") => void
   theme: ThemePreference
+  user?: DriveLibraryUser
 }
 
 export function LibraryToolbar({
@@ -39,10 +42,11 @@ export function LibraryToolbar({
   onUpload,
   onViewChange,
   theme,
+  user,
 }: LibraryToolbarProps) {
   return (
-    <header className="library-header">
-      <div className="library-header__crumbs">
+    <header className="sticky top-0 z-20 flex min-h-[4.5rem] flex-col items-start justify-between gap-4 bg-[color-mix(in_oklch,var(--background)_92%,transparent)] px-[clamp(1rem,2vw,2rem)] py-4 backdrop-blur-md min-[52rem]:flex-row min-[52rem]:items-center">
+      <div className="min-w-0 overflow-hidden">
         <Breadcrumbs aria-label="Current folder">
           <Breadcrumbs.Item href="/">Akasha</Breadcrumbs.Item>
           {folderPath.map((folder) => (
@@ -52,7 +56,7 @@ export function LibraryToolbar({
           ))}
         </Breadcrumbs>
       </div>
-      <div className="library-header__controls">
+      <div className="flex w-full flex-wrap items-center gap-3 min-[52rem]:w-auto min-[52rem]:flex-none min-[52rem]:flex-nowrap">
         {activeView === "all" ? (
           <Tooltip delay={0}>
             <ToggleButton
@@ -135,6 +139,7 @@ export function LibraryToolbar({
             <DesktopIcon aria-hidden="true" size={16} />
           </Segment.Item>
         </Segment>
+        <LibraryAccountMenu user={user} />
       </div>
     </header>
   )

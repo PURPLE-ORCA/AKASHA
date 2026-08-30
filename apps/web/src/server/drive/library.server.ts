@@ -3,6 +3,7 @@ import { libraryFolderSchema, libraryItemSchema } from "@akasha/contracts"
 import type { LibraryFolder, LibraryItem, MediaKind } from "@akasha/contracts"
 
 import {
+  createDriveClient,
   ensureStillroomRoot,
   FOLDER_MIME_TYPE,
   listStillroomFiles,
@@ -13,6 +14,13 @@ export type DriveLibrarySnapshot = {
   folders: LibraryFolder[]
   items: LibraryItem[]
   rootFolderId: string
+  user?: DriveLibraryUser
+}
+
+export type DriveLibraryUser = {
+  displayName?: string
+  emailAddress?: string
+  photoLink?: string
 }
 
 export async function loadDriveLibrary(
@@ -24,13 +32,17 @@ export async function loadDriveLibrary(
     throw new Error("Akasha could not initialize the library root.")
   }
 
-  const files = await listStillroomFiles(refreshToken)
-  return buildDriveLibrarySnapshot(root.id, files)
+  const [files, user] = await Promise.all([
+    listStillroomFiles(refreshToken),
+    loadDriveUser(refreshToken),
+  ])
+  return buildDriveLibrarySnapshot(root.id, files, user)
 }
 
 export function buildDriveLibrarySnapshot(
   rootFolderId: string,
-  files: drive_v3.Schema$File[]
+  files: drive_v3.Schema$File[],
+  user?: DriveLibraryUser
 ): DriveLibrarySnapshot {
   const filesByParent = new Map<string, drive_v3.Schema$File[]>()
   const filesById = new Map(
@@ -81,7 +93,20 @@ export function buildDriveLibrarySnapshot(
     }
   }
 
-  return { folders, items, rootFolderId }
+  return { folders, items, rootFolderId, user }
+}
+
+async function loadDriveUser(refreshToken: string): Promise<DriveLibraryUser> {
+  const drive = createDriveClient(refreshToken)
+  const response = await drive.about.get({
+    fields: "user(displayName,emailAddress,photoLink)",
+  })
+
+  return {
+    displayName: response.data.user?.displayName ?? undefined,
+    emailAddress: response.data.user?.emailAddress ?? undefined,
+    photoLink: response.data.user?.photoLink ?? undefined,
+  }
 }
 
 export function mapDriveFileToLibraryItem(

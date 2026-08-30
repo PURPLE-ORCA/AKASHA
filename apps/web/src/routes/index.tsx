@@ -79,27 +79,31 @@ function LibraryLoadingFixture() {
   const aspectRatios = ["4 / 5", "3 / 2", "1 / 1", "2 / 3", "5 / 4", "3 / 4"]
 
   return (
-    <div aria-hidden="true" className="library-shell library-loading-shell">
-      <header className="library-header">
-        <div className="library-loading-crumb">Akasha</div>
-        <div className="library-loading-controls">
-          <div className="library-loading-view">
-            <span />
-            <span />
+    <div
+      aria-hidden="true"
+      className="h-svh min-h-svh overflow-hidden bg-background"
+    >
+      <header className="sticky top-0 z-20 flex min-h-[4.5rem] flex-col items-start justify-between gap-4 bg-[color-mix(in_oklch,var(--background)_92%,transparent)] px-[clamp(1rem,2vw,2rem)] py-4 backdrop-blur-md min-[52rem]:flex-row min-[52rem]:items-center">
+        <div className="text-sm font-semibold">Akasha</div>
+        <div className="flex items-center gap-3">
+          <div className="flex gap-1 rounded-xl bg-default p-1">
+            <span className="h-8 w-14 rounded-lg bg-surface" />
+            <span className="h-8 w-14 rounded-lg bg-surface" />
           </div>
-          <div className="library-loading-theme">
-            <span />
-            <span />
-            <span />
+          <div className="flex gap-1 rounded-xl bg-default p-1">
+            <span className="size-8 rounded-lg bg-surface" />
+            <span className="size-8 rounded-lg bg-surface" />
+            <span className="size-8 rounded-lg bg-surface" />
           </div>
+          <div className="size-8 rounded-full bg-default" />
         </div>
       </header>
-      <main className="library-main">
-        <div className="media-grid">
+      <main className="w-full px-[clamp(0.75rem,1.5vw,1.5rem)] pt-4 pb-12">
+        <div className="columns-1 gap-4 sm:columns-2 min-[56rem]:columns-3 min-[76rem]:columns-4 min-[100rem]:columns-5">
           {Array.from({ length: 16 }, (_, index) => (
-            <div className="media-unit" key={index}>
+            <div className="mb-4 break-inside-avoid" key={index}>
               <div
-                className="library-loading-image"
+                className="min-h-40 w-full rounded-2xl bg-default"
                 style={{
                   aspectRatio: aspectRatios[index % aspectRatios.length],
                 }}

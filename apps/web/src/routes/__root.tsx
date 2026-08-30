@@ -36,8 +36,8 @@ export const Route = createRootRoute({
     ],
   }),
   notFoundComponent: () => (
-    <main className="not-found">
-      <div className="not-found__content">
+    <main className="grid min-h-dvh place-items-center p-8 text-center">
+      <div className="grid w-full max-w-[44rem] justify-items-center gap-6">
         <Typography color="muted" type="body-sm">
           404
         </Typography>
@@ -63,7 +63,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         <RouterProvider navigate={(href) => navigate({ href })}>
-          <a className="skip-link" href="#main-content">
+          <a
+            className="fixed top-4 -left-[999rem] z-50 focus:left-4"
+            href="#main-content"
+          >
             Skip to content
           </a>
           {children}

@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiUploadsRouteImport } from './routes/api/uploads'
 import { Route as ApiAuthGoogleRouteImport } from './routes/api/auth/google'
+import { Route as ApiAuthLogoutRouteImport } from './routes/api/auth/logout'
 import { Route as ApiExtensionAuthRouteImport } from './routes/api/extension/auth'
 import { Route as ApiExtensionCapturesRouteImport } from './routes/api/extension/captures'
 import { Route as ApiExtensionDedupeRouteImport } from './routes/api/extension/dedupe'
@@ -32,6 +33,11 @@ const ApiUploadsRoute = ApiUploadsRouteImport.update({
 const ApiAuthGoogleRoute = ApiAuthGoogleRouteImport.update({
   id: '/api/auth/google',
   path: '/api/auth/google',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthLogoutRoute = ApiAuthLogoutRouteImport.update({
+  id: '/api/auth/logout',
+  path: '/api/auth/logout',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiExtensionAuthRoute = ApiExtensionAuthRouteImport.update({
@@ -69,6 +75,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/uploads': typeof ApiUploadsRoute
   '/api/auth/google': typeof ApiAuthGoogleRouteWithChildren
+  '/api/auth/logout': typeof ApiAuthLogoutRoute
   '/api/extension/auth': typeof ApiExtensionAuthRoute
   '/api/extension/captures': typeof ApiExtensionCapturesRoute
   '/api/extension/dedupe': typeof ApiExtensionDedupeRoute
@@ -80,6 +87,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/uploads': typeof ApiUploadsRoute
   '/api/auth/google': typeof ApiAuthGoogleRouteWithChildren
+  '/api/auth/logout': typeof ApiAuthLogoutRoute
   '/api/extension/auth': typeof ApiExtensionAuthRoute
   '/api/extension/captures': typeof ApiExtensionCapturesRoute
   '/api/extension/dedupe': typeof ApiExtensionDedupeRoute
@@ -92,6 +100,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/api/uploads': typeof ApiUploadsRoute
   '/api/auth/google': typeof ApiAuthGoogleRouteWithChildren
+  '/api/auth/logout': typeof ApiAuthLogoutRoute
   '/api/extension/auth': typeof ApiExtensionAuthRoute
   '/api/extension/captures': typeof ApiExtensionCapturesRoute
   '/api/extension/dedupe': typeof ApiExtensionDedupeRoute
@@ -105,6 +114,7 @@ export interface FileRouteTypes {
     | '/'
     | '/api/uploads'
     | '/api/auth/google'
+    | '/api/auth/logout'
     | '/api/extension/auth'
     | '/api/extension/captures'
     | '/api/extension/dedupe'
@@ -116,6 +126,7 @@ export interface FileRouteTypes {
     | '/'
     | '/api/uploads'
     | '/api/auth/google'
+    | '/api/auth/logout'
     | '/api/extension/auth'
     | '/api/extension/captures'
     | '/api/extension/dedupe'
@@ -127,6 +138,7 @@ export interface FileRouteTypes {
     | '/'
     | '/api/uploads'
     | '/api/auth/google'
+    | '/api/auth/logout'
     | '/api/extension/auth'
     | '/api/extension/captures'
     | '/api/extension/dedupe'
@@ -139,6 +151,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiUploadsRoute: typeof ApiUploadsRoute
   ApiAuthGoogleRoute: typeof ApiAuthGoogleRouteWithChildren
+  ApiAuthLogoutRoute: typeof ApiAuthLogoutRoute
   ApiExtensionAuthRoute: typeof ApiExtensionAuthRoute
   ApiExtensionCapturesRoute: typeof ApiExtensionCapturesRoute
   ApiExtensionDedupeRoute: typeof ApiExtensionDedupeRoute
@@ -167,6 +180,13 @@ declare module '@tanstack/react-router' {
       path: '/api/auth/google'
       fullPath: '/api/auth/google'
       preLoaderRoute: typeof ApiAuthGoogleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/logout': {
+      id: '/api/auth/logout'
+      path: '/api/auth/logout'
+      fullPath: '/api/auth/logout'
+      preLoaderRoute: typeof ApiAuthLogoutRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/extension/auth': {
@@ -230,6 +250,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiUploadsRoute: ApiUploadsRoute,
   ApiAuthGoogleRoute: ApiAuthGoogleRouteWithChildren,
+  ApiAuthLogoutRoute: ApiAuthLogoutRoute,
   ApiExtensionAuthRoute: ApiExtensionAuthRoute,
   ApiExtensionCapturesRoute: ApiExtensionCapturesRoute,
   ApiExtensionDedupeRoute: ApiExtensionDedupeRoute,

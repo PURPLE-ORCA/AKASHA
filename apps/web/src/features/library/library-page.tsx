@@ -259,7 +259,7 @@ export function LibraryPage({
   }
 
   return (
-    <div className="library-shell">
+    <div className="min-h-screen bg-background text-foreground">
       <LibraryToolbar
         activeView={activeTab}
         canSelect={filteredItems.length > 0}
@@ -272,6 +272,7 @@ export function LibraryPage({
         onUpload={() => uploaderRef.current?.openFilePicker()}
         onViewChange={setActiveTab}
         theme={theme}
+        user={initialSnapshot.user}
       />
       <LibraryDropTarget
         folderName={selectedFolderName}
@@ -279,13 +280,22 @@ export function LibraryPage({
       >
         <ContextMenu>
           <ContextMenu.Trigger
-            render={(props) => <div {...props} data-library-context-trigger />}
+            render={(props) => (
+              <div
+                {...props}
+                className="block min-h-[calc(100svh-4.5rem)] w-full"
+                data-library-context-trigger
+              />
+            )}
           >
-            <main className="library-main" id="main-content">
+            <main
+              className="w-full px-[clamp(0.75rem,1.5vw,1.5rem)] pt-4 pb-12"
+              id="main-content"
+            >
               <div className="sr-only">
                 <Typography type="h1">{selectedFolderName}</Typography>
               </div>
-              <div className="library-content">
+              <div className="min-h-[calc(100svh-10rem)]">
                 {activeTab === "all" ? (
                   isLibraryEmpty ? (
                     <LibraryEmptyState

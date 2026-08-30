@@ -9,3 +9,6 @@ coverage/
 playwright-report/
 test-results/
 /temp
+
+AGENTS.md
+apps/web/.vercel/

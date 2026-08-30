@@ -16,9 +16,9 @@ export function LibraryShortcuts() {
         </Button>
       </HoverCard.Trigger>
       <HoverCard.Content placement="bottom end">
-        <div className="shortcut-menu">
+        <div className="grid min-w-[18rem] gap-3">
           <Typography type="h6">Keyboard shortcuts</Typography>
-          <dl className="shortcut-list">
+          <dl className="m-0 grid gap-2.5">
             <Shortcut label="Command palette">
               <Kbd>
                 <Kbd.Abbr keyValue="command" />
@@ -51,7 +51,7 @@ export function LibraryShortcuts() {
               </Kbd>
             </Shortcut>
             <Shortcut label="Move through folders or media">
-              <span className="shortcut-keys">
+              <span className="flex items-center gap-1.5">
                 <Kbd>
                   <Kbd.Abbr keyValue="left" />
                 </Kbd>
@@ -71,7 +71,7 @@ export function LibraryShortcuts() {
               </Kbd>
             </Shortcut>
             <Shortcut label="Open folder">
-              <span className="shortcut-keys">
+              <span className="flex items-center gap-1.5">
                 <Kbd>
                   <Kbd.Abbr keyValue="space" />
                 </Kbd>
@@ -98,13 +98,13 @@ function Shortcut({
   label: string
 }) {
   return (
-    <div className="shortcut-row">
-      <dt>
+    <div className="flex items-center justify-between gap-6">
+      <dt className="m-0">
         <Typography color="muted" type="body-sm">
           {label}
         </Typography>
       </dt>
-      <dd>{children}</dd>
+      <dd className="m-0">{children}</dd>
     </div>
   )
 }

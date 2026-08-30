@@ -40,6 +40,9 @@ describe("LibraryPage", () => {
     expect(
       screen.getByRole("button", { name: "Keyboard shortcuts" })
     ).toBeTruthy()
+    expect(
+      screen.getByRole("button", { name: "Open account menu" })
+    ).toBeTruthy()
     expect(screen.getByRole("button", { name: "Create folder" })).toBeTruthy()
     expect(
       screen.getAllByRole("button", { name: "Upload images" })
@@ -142,6 +145,28 @@ describe("LibraryPage", () => {
     expect(
       screen.getByRole("heading", { name: "Delete 2 assets?" })
     ).toBeTruthy()
+  })
+
+  it("shows the connected Google profile in the account trigger", () => {
+    render(
+      <LibraryPage
+        initialSnapshot={{
+          folders: [],
+          items: [],
+          rootFolderId: "root",
+          user: {
+            displayName: "Ada Lovelace",
+            emailAddress: "ada@example.com",
+            photoLink: "https://example.com/ada.jpg",
+          },
+        }}
+      />
+    )
+
+    const accountButton = screen.getByRole("button", {
+      name: "Open account menu",
+    })
+    expect(accountButton.textContent).toContain("AL")
   })
 
   it("switches between All and Folders with the S shortcut", () => {

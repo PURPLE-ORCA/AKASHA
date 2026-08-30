@@ -67,12 +67,12 @@ export function NewFolderDialog({
         <Modal.Container size="sm">
           <Modal.Dialog>
             <Modal.CloseTrigger />
-            <form className="dialog-form" onSubmit={submit}>
+            <form className="grid gap-4" onSubmit={submit}>
               <Modal.Header>
                 <Modal.Heading>Create a folder</Modal.Heading>
               </Modal.Header>
               <Modal.Body>
-                <div className="dialog-field">
+                <div className="grid gap-4">
                   <Typography color="muted" type="body-sm">
                     Add a folder inside {parentName}.
                   </Typography>
@@ -90,7 +90,7 @@ export function NewFolderDialog({
                 </div>
               </Modal.Body>
               <Modal.Footer>
-                <div className="dialog-actions">
+                <div className="flex justify-end gap-3">
                   <Button slot="close" type="button" variant="tertiary">
                     Cancel
                   </Button>
@@ -157,12 +157,12 @@ export function MoveItemsDialog({
       <Modal.Container size="sm">
         <Modal.Dialog>
           <Modal.CloseTrigger />
-          <form className="dialog-form" onSubmit={submit}>
+          <form className="grid gap-4" onSubmit={submit}>
             <Modal.Header>
               <Modal.Heading>Move {formatItemCount(itemCount)}</Modal.Heading>
             </Modal.Header>
             <Modal.Body>
-              <div className="dialog-field">
+              <div className="grid gap-4">
                 <Select
                   fullWidth
                   placeholder="Choose a folder"
@@ -197,7 +197,7 @@ export function MoveItemsDialog({
               </div>
             </Modal.Body>
             <Modal.Footer>
-              <div className="dialog-actions">
+              <div className="flex justify-end gap-3">
                 <Button slot="close" type="button" variant="tertiary">
                   Cancel
                 </Button>
@@ -272,7 +272,7 @@ export function RemoveItemsDialog({
             ) : null}
           </AlertDialog.Body>
           <AlertDialog.Footer>
-            <div className="dialog-actions">
+            <div className="flex justify-end gap-3">
               <Button slot="close" variant="tertiary">
                 Cancel
               </Button>

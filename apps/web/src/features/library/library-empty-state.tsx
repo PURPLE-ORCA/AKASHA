@@ -17,16 +17,13 @@ export function LibraryEmptyState({
   const [isOpen, setIsOpen] = useState(false)
 
   return (
-    <div className="gallery-empty">
+    <div className="grid min-h-[28rem] place-items-center">
       <EmptyState>
         <EmptyState.Header>
           <EmptyState.Media variant="icon">
             <FolderSimplePlusIcon aria-hidden="true" />
           </EmptyState.Media>
-          <EmptyState.Title>Create your first folder</EmptyState.Title>
-          <EmptyState.Description>
-            Give your collection a place to begin.
-          </EmptyState.Description>
+          <EmptyState.Title>Start your library</EmptyState.Title>
         </EmptyState.Header>
         <EmptyState.Content>
           <div className="flex flex-wrap justify-center gap-3">

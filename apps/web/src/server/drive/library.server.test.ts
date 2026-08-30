@@ -93,41 +93,54 @@ describe("mapDriveFileToLibraryItem", () => {
 
 describe("buildDriveLibrarySnapshot", () => {
   it("builds a nested library from a single Drive listing", () => {
-    const snapshot = buildDriveLibrarySnapshot("root", [
+    const snapshot = buildDriveLibrarySnapshot(
+      "root",
+      [
+        {
+          id: "nested",
+          mimeType: "application/vnd.google-apps.folder",
+          name: "Nested",
+          parents: ["folder"],
+        },
+        {
+          id: "folder",
+          mimeType: "application/vnd.google-apps.folder",
+          name: "Ideas",
+          parents: ["root"],
+        },
+        {
+          createdTime: "2026-08-15T09:00:00.000Z",
+          description: JSON.stringify({
+            sourceUrl: "https://example.com/reference",
+          }),
+          id: "image",
+          mimeType: "image/jpeg",
+          name: "reference.jpeg",
+          parents: ["nested"],
+        },
+        {
+          id: "unrelated",
+          mimeType: "application/vnd.google-apps.folder",
+          name: "Unrelated",
+          parents: ["outside"],
+        },
+      ],
       {
-        id: "nested",
-        mimeType: "application/vnd.google-apps.folder",
-        name: "Nested",
-        parents: ["folder"],
-      },
-      {
-        id: "folder",
-        mimeType: "application/vnd.google-apps.folder",
-        name: "Ideas",
-        parents: ["root"],
-      },
-      {
-        createdTime: "2026-08-15T09:00:00.000Z",
-        description: JSON.stringify({
-          sourceUrl: "https://example.com/reference",
-        }),
-        id: "image",
-        mimeType: "image/jpeg",
-        name: "reference.jpeg",
-        parents: ["nested"],
-      },
-      {
-        id: "unrelated",
-        mimeType: "application/vnd.google-apps.folder",
-        name: "Unrelated",
-        parents: ["outside"],
-      },
-    ])
+        displayName: "Ada Lovelace",
+        emailAddress: "ada@example.com",
+        photoLink: "https://example.com/ada.jpg",
+      }
+    )
 
     expect(snapshot.folders).toEqual([
       { id: "folder", name: "Ideas", parentId: null },
       { id: "nested", name: "Nested", parentId: "folder" },
     ])
     expect(snapshot.items).toMatchObject([{ folderId: "nested", id: "image" }])
+    expect(snapshot.user).toEqual({
+      displayName: "Ada Lovelace",
+      emailAddress: "ada@example.com",
+      photoLink: "https://example.com/ada.jpg",
+    })
   })
 })
