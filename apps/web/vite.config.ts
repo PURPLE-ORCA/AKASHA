@@ -1,7 +1,8 @@
 /// <reference types="vitest/config" />
 
 import { defineConfig } from "vite"
-import { createRequire } from "node:module"
+import { dirname, resolve } from "node:path"
+import { fileURLToPath } from "node:url"
 import { devtools } from "@tanstack/devtools-vite"
 import { tanstackStart } from "@tanstack/react-start/plugin/vite"
 import viteReact from "@vitejs/plugin-react"
@@ -9,8 +10,10 @@ import tailwindcss from "@tailwindcss/vite"
 import { boneyardPlugin } from "boneyard-js/vite"
 import { nitro } from "nitro/vite"
 
-const require = createRequire(import.meta.url)
-const heroUiProCssPath = require.resolve("@heroui-pro/react/css")
+const heroUiProCssPath = resolve(
+  dirname(fileURLToPath(import.meta.resolve("@heroui-pro/react"))),
+  "css/index.css",
+)
 
 const config = defineConfig(({ mode }) => ({
   resolve: {
