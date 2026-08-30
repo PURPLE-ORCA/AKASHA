@@ -1,7 +1,6 @@
 /// <reference types="vitest/config" />
 
 import { defineConfig } from "vite"
-import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { devtools } from "@tanstack/devtools-vite"
 import { tanstackStart } from "@tanstack/react-start/plugin/vite"
@@ -10,14 +9,13 @@ import tailwindcss from "@tailwindcss/vite"
 import { boneyardPlugin } from "boneyard-js/vite"
 import { nitro } from "nitro/vite"
 
-const heroUiProCssPath = resolve(
-  dirname(fileURLToPath(import.meta.resolve("@heroui-pro/react"))),
-  "css/index.css",
-)
+const heroUiProCssPath = `${fileURLToPath(
+  new URL("./node_modules/@heroui-pro/react/dist/css/index.css", import.meta.url),
+)}?url`
 
 const config = defineConfig(({ mode }) => ({
   resolve: {
-    alias: { "@heroui-pro-css": `${heroUiProCssPath}?url` },
+    alias: { "@heroui-pro-css": heroUiProCssPath },
     dedupe: ["react", "react-dom"],
     tsconfigPaths: true,
   },
