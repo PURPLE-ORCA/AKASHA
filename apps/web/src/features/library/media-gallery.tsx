@@ -20,6 +20,7 @@ const RENDER_BATCH_SIZE = 48
 const PRIORITY_IMAGE_COUNT = 2
 
 type MediaGalleryProps = {
+  emptyMessage?: string
   isSelectionMode: boolean
   items: LibraryItem[]
   onMoveItem: (itemId: string) => void
@@ -30,6 +31,7 @@ type MediaGalleryProps = {
 }
 
 export function MediaGallery({
+  emptyMessage = "No media here yet.",
   isSelectionMode,
   items,
   onMoveItem,
@@ -68,7 +70,7 @@ export function MediaGallery({
   if (displayItems.length === 0) {
     return (
       <div className="grid min-h-[28rem] place-items-center">
-        <Typography color="muted">No media here yet.</Typography>
+        <Typography color="muted">{emptyMessage}</Typography>
       </div>
     )
   }

@@ -6,13 +6,22 @@ import {
   SunIcon,
   UploadSimpleIcon,
 } from "@phosphor-icons/react"
-import { Breadcrumbs, Button, ToggleButton, Tooltip } from "@heroui/react"
+import {
+  Breadcrumbs,
+  Button,
+  ListBox,
+  SearchField,
+  Select,
+  ToggleButton,
+  Tooltip,
+} from "@heroui/react"
 import { Segment } from "@heroui-pro/react"
 import type { LibraryFolder } from "@akasha/contracts"
 
 import type { ThemePreference } from "@/features/theme/theme"
 import type { DriveLibraryUser } from "@/server/drive/library.server"
 import { LibraryAccountMenu } from "./library-account-menu"
+import type { LibrarySortOrder } from "./library-items"
 import { LibraryShortcuts } from "./library-shortcuts"
 
 type LibraryToolbarProps = {
@@ -22,10 +31,14 @@ type LibraryToolbarProps = {
   isSelectionMode: boolean
   mediaFilter: "all" | "image" | "video"
   onMediaFilterChange: (filter: "all" | "image" | "video") => void
+  onSearchQueryChange: (query: string) => void
   onSelectionModeChange: (isSelectionMode: boolean) => void
+  onSortOrderChange: (sortOrder: LibrarySortOrder) => void
   onUpload: () => void
   onThemeChange: (theme: ThemePreference) => void
   onViewChange: (view: "all" | "folders") => void
+  searchQuery: string
+  sortOrder: LibrarySortOrder
   theme: ThemePreference
   user?: DriveLibraryUser
 }
@@ -37,10 +50,14 @@ export function LibraryToolbar({
   isSelectionMode,
   mediaFilter,
   onMediaFilterChange,
+  onSearchQueryChange,
   onSelectionModeChange,
+  onSortOrderChange,
   onThemeChange,
   onUpload,
   onViewChange,
+  searchQuery,
+  sortOrder,
   theme,
   user,
 }: LibraryToolbarProps) {
@@ -57,6 +74,56 @@ export function LibraryToolbar({
         </Breadcrumbs>
       </div>
       <div className="flex w-full flex-wrap items-center gap-3 min-[52rem]:w-auto min-[52rem]:flex-none min-[52rem]:flex-nowrap">
+        {activeView === "all" ? (
+          <div className="flex w-full min-w-0 items-center gap-2 min-[52rem]:w-auto">
+            <div className="min-w-0 flex-1 min-[52rem]:w-60 min-[52rem]:flex-none">
+              <SearchField
+                aria-label="Search library"
+                fullWidth
+                value={searchQuery}
+                variant="secondary"
+                onChange={onSearchQueryChange}
+              >
+                <SearchField.Group>
+                  <SearchField.SearchIcon />
+                  <SearchField.Input placeholder="Search library" />
+                  <SearchField.ClearButton />
+                </SearchField.Group>
+              </SearchField>
+            </div>
+            <div className="w-36 flex-none">
+              <Select
+                aria-label="Sort media"
+                fullWidth
+                selectedKey={sortOrder}
+                onSelectionChange={(key) =>
+                  onSortOrderChange(String(key) as LibrarySortOrder)
+                }
+              >
+                <Select.Trigger>
+                  <Select.Value />
+                  <Select.Indicator />
+                </Select.Trigger>
+                <Select.Popover>
+                  <ListBox>
+                    <ListBox.Item id="newest" textValue="Newest">
+                      Newest
+                      <ListBox.ItemIndicator />
+                    </ListBox.Item>
+                    <ListBox.Item id="oldest" textValue="Oldest">
+                      Oldest
+                      <ListBox.ItemIndicator />
+                    </ListBox.Item>
+                    <ListBox.Item id="title" textValue="Title">
+                      Title
+                      <ListBox.ItemIndicator />
+                    </ListBox.Item>
+                  </ListBox>
+                </Select.Popover>
+              </Select>
+            </div>
+          </div>
+        ) : null}
         {activeView === "all" ? (
           <Tooltip delay={0}>
             <ToggleButton

@@ -21,6 +21,8 @@ import {
 import { LibraryBulkActions } from "./library-bulk-actions"
 import { LibraryCommandPalette } from "./library-command-palette"
 import { LibraryEmptyState } from "./library-empty-state"
+import { filterLibraryItems } from "./library-items"
+import type { LibrarySortOrder } from "./library-items"
 import { LibraryToolbar } from "./library-toolbar"
 import { LibraryDropTarget, LibraryUploader } from "./library-upload"
 import type { LibraryUploaderHandle } from "./library-upload"
@@ -48,6 +50,8 @@ export function LibraryPage({
   const [mediaFilter, setMediaFilter] = useState<"all" | "image" | "video">(
     "all"
   )
+  const [searchQuery, setSearchQuery] = useState("")
+  const [sortOrder, setSortOrder] = useState<LibrarySortOrder>("newest")
   const [commandOpen, setCommandOpen] = useState(false)
   const [createFolderOpen, setCreateFolderOpen] = useState(false)
   const [isSelectionMode, setIsSelectionMode] = useState(false)
@@ -70,19 +74,24 @@ export function LibraryPage({
   const parentFolderId = folders.find(
     (folder) => folder.id === selectedFolderId
   )?.parentId
-  const visibleItems = useMemo(
-    () =>
-      selectedFolderId === rootFolderId
-        ? items
-        : items.filter((item) => item.folderId === selectedFolderId),
-    [items, rootFolderId, selectedFolderId]
-  )
   const filteredItems = useMemo(
     () =>
-      mediaFilter === "all"
-        ? visibleItems
-        : visibleItems.filter((item) => item.kind === mediaFilter),
-    [mediaFilter, visibleItems]
+      filterLibraryItems(items, folders, {
+        mediaFilter,
+        query: searchQuery,
+        rootFolderId,
+        selectedFolderId,
+        sortOrder,
+      }),
+    [
+      folders,
+      items,
+      mediaFilter,
+      rootFolderId,
+      searchQuery,
+      selectedFolderId,
+      sortOrder,
+    ]
   )
   const visibleFolders = useMemo(
     () =>
@@ -223,6 +232,14 @@ export function LibraryPage({
     await onRefresh()
   }
 
+  function changeSearchQuery(query: string) {
+    setSearchQuery(query)
+    if (!query.trim()) return
+
+    setActiveTab("all")
+    if (selectedFolderId !== rootFolderId) onFolderNavigate?.()
+  }
+
   function changeSelectionMode(nextSelectionMode: boolean) {
     setIsSelectionMode(nextSelectionMode)
     if (!nextSelectionMode) setSelectedItemIds(new Set())
@@ -267,10 +284,14 @@ export function LibraryPage({
         isSelectionMode={isSelectionMode}
         mediaFilter={mediaFilter}
         onMediaFilterChange={setMediaFilter}
+        onSearchQueryChange={changeSearchQuery}
         onSelectionModeChange={changeSelectionMode}
+        onSortOrderChange={setSortOrder}
         onThemeChange={setTheme}
         onUpload={() => uploaderRef.current?.openFilePicker()}
         onViewChange={setActiveTab}
+        searchQuery={searchQuery}
+        sortOrder={sortOrder}
         theme={theme}
         user={initialSnapshot.user}
       />
@@ -304,6 +325,9 @@ export function LibraryPage({
                     />
                   ) : (
                     <MediaGallery
+                      emptyMessage={
+                        searchQuery.trim() ? "No matching media." : undefined
+                      }
                       isSelectionMode={isSelectionMode}
                       items={filteredItems}
                       onMoveItem={(itemId) => setMoveItemIds([itemId])}

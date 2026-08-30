@@ -366,11 +366,67 @@ describe("LibraryPage", () => {
       screen.getByRole("button", { name: "Open Video reference" })
     ).toBeTruthy()
   })
+
+  it("searches the full library and shows newest captures first", () => {
+    const onFolderNavigate = vi.fn()
+
+    render(
+      <LibraryPage
+        initialSnapshot={{
+          folders: [
+            { id: "editorial", name: "Editorial", parentId: null },
+            { id: "motion", name: "Motion", parentId: null },
+          ],
+          items: [
+            createLibraryItem(
+              "older",
+              "Older landing",
+              "editorial",
+              "2026-08-20T10:00:00.000Z"
+            ),
+            createLibraryItem(
+              "newer",
+              "Newest motion",
+              "motion",
+              "2026-08-30T10:00:00.000Z"
+            ),
+          ],
+          rootFolderId: "root",
+        }}
+        onFolderNavigate={onFolderNavigate}
+        requestedFolderId="editorial"
+      />
+    )
+
+    expect(
+      screen.getByRole("button", { name: "Open Older landing" })
+    ).toBeTruthy()
+    expect(
+      screen.queryByRole("button", { name: "Open Newest motion" })
+    ).toBeNull()
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search library" }), {
+      target: { value: "motion" },
+    })
+
+    expect(onFolderNavigate).toHaveBeenCalledWith()
+    expect(
+      screen.getByRole("button", { name: "Open Newest motion" })
+    ).toBeTruthy()
+    expect(
+      screen.queryByRole("button", { name: "Open Older landing" })
+    ).toBeNull()
+  })
 })
 
-function createLibraryItem(id: string, title: string, folderId = "root") {
+function createLibraryItem(
+  id: string,
+  title: string,
+  folderId = "root",
+  capturedAt = "2026-08-23T10:00:00.000Z"
+) {
   return {
-    capturedAt: "2026-08-23T10:00:00.000Z",
+    capturedAt,
     driveFileId: id,
     folderId,
     id,
