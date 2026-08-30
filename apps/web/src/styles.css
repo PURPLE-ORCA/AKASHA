@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @import "@heroui/styles";
-@import "@heroui-pro/react/css";
+@import "../node_modules/@heroui-pro/react/dist/css/index.css";
 @import "@fontsource-variable/manrope";
 @import "@fontsource-variable/oxanium";
 
