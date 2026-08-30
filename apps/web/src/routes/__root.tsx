@@ -8,6 +8,7 @@ import { Link, Toast, Typography } from "@heroui/react"
 import { RouterProvider } from "react-aria-components"
 
 import { themeBootstrapScript } from "@/features/theme/theme"
+import heroUiProCss from "@heroui-pro/react/css?url"
 import appCss from "../styles.css?url"
 
 export const Route = createRootRoute({
@@ -29,6 +30,10 @@ export const Route = createRootRoute({
       },
     ],
     links: [
+      {
+        rel: "stylesheet",
+        href: heroUiProCss,
+      },
       {
         rel: "stylesheet",
         href: appCss,
