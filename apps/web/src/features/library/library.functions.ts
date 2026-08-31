@@ -3,6 +3,7 @@ import { setResponseHeaders } from "@tanstack/react-start/server"
 import { z } from "zod"
 
 import { useStillroomSession } from "@/server/auth/session.server"
+import { isGoogleRefreshTokenRejected } from "@/server/auth/google-oauth.server"
 import { createFolder, moveFile, trashFile } from "@/server/drive/drive.server"
 import {
   moveDriveFolder,
@@ -53,8 +54,14 @@ export const getLibrarySnapshot = createServerFn({ method: "GET" }).handler(
       return { status: "disconnected" as const }
     }
 
-    const snapshot = await loadDriveLibrary(session.data.googleRefreshToken)
-    return { snapshot, status: "connected" as const }
+    try {
+      const snapshot = await loadDriveLibrary(session.data.googleRefreshToken)
+      return { snapshot, status: "connected" as const }
+    } catch (error) {
+      if (!isGoogleRefreshTokenRejected(error)) throw error
+      await session.clear()
+      return { status: "disconnected" as const }
+    }
   }
 )
 
