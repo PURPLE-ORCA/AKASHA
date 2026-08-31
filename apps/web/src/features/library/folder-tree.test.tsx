@@ -72,8 +72,19 @@ describe("getFolderPreviews", () => {
 
 describe("FolderGallery", () => {
   it("moves across and enters the folder tree with arrow keys", () => {
+    const onMoveFolder = vi.fn()
+    const onRemoveFolder = vi.fn()
+    const onRenameFolder = vi.fn()
+
     render(
-      <FolderGallery folders={folders} items={[]} libraryFolders={folders} />
+      <FolderGallery
+        folders={folders}
+        items={[]}
+        libraryFolders={folders}
+        onMoveFolder={onMoveFolder}
+        onRemoveFolder={onRemoveFolder}
+        onRenameFolder={onRenameFolder}
+      />
     )
     const parent = screen.getByRole("link", { name: "Parent" })
     const child = screen.getByRole("link", { name: "Child" })
@@ -91,5 +102,9 @@ describe("FolderGallery", () => {
 
     fireEvent.keyDown(parent, { key: " " })
     expect(click).toHaveBeenCalledTimes(2)
+
+    fireEvent.contextMenu(parent)
+    fireEvent.click(screen.getByText("Rename"))
+    expect(onRenameFolder).toHaveBeenCalledWith(folders[0])
   })
 })

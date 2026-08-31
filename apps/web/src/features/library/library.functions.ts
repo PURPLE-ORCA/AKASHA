@@ -3,7 +3,13 @@ import { setResponseHeaders } from "@tanstack/react-start/server"
 import { z } from "zod"
 
 import { useStillroomSession } from "@/server/auth/session.server"
+import { isGoogleRefreshTokenRejected } from "@/server/auth/google-oauth.server"
 import { createFolder, moveFile, trashFile } from "@/server/drive/drive.server"
+import {
+  moveDriveFolder,
+  renameDriveFolder,
+  trashDriveFolder,
+} from "@/server/drive/folder-actions.server"
 import { loadDriveLibrary } from "@/server/drive/library.server"
 
 const createFolderInputSchema = z.object({
@@ -20,6 +26,20 @@ const removeItemsInputSchema = z.object({
   fileIds: z.array(z.string().min(1)).min(1).max(100),
 })
 
+const renameFolderInputSchema = z.object({
+  folderId: z.string().min(1),
+  name: z.string().trim().min(1).max(120),
+})
+
+const moveFolderInputSchema = z.object({
+  destinationFolderId: z.string().min(1),
+  folderId: z.string().min(1),
+})
+
+const removeFolderInputSchema = z.object({
+  folderId: z.string().min(1),
+})
+
 export const getLibrarySnapshot = createServerFn({ method: "GET" }).handler(
   async () => {
     setPrivateNoStoreHeaders()
@@ -34,8 +54,14 @@ export const getLibrarySnapshot = createServerFn({ method: "GET" }).handler(
       return { status: "disconnected" as const }
     }
 
-    const snapshot = await loadDriveLibrary(session.data.googleRefreshToken)
-    return { snapshot, status: "connected" as const }
+    try {
+      const snapshot = await loadDriveLibrary(session.data.googleRefreshToken)
+      return { snapshot, status: "connected" as const }
+    } catch (error) {
+      if (!isGoogleRefreshTokenRejected(error)) throw error
+      await session.clear()
+      return { status: "disconnected" as const }
+    }
   }
 )
 
@@ -71,6 +97,34 @@ export const removeLibraryItems = createServerFn({ method: "POST" })
     )
 
     return { removed: data.fileIds.length }
+  })
+
+export const renameLibraryFolder = createServerFn({ method: "POST" })
+  .validator(renameFolderInputSchema)
+  .handler(async ({ data }) => {
+    setPrivateNoStoreHeaders()
+    const refreshToken = await requireRefreshToken()
+    return renameDriveFolder(refreshToken, data.folderId, data.name)
+  })
+
+export const moveLibraryFolder = createServerFn({ method: "POST" })
+  .validator(moveFolderInputSchema)
+  .handler(async ({ data }) => {
+    setPrivateNoStoreHeaders()
+    const refreshToken = await requireRefreshToken()
+    return moveDriveFolder(
+      refreshToken,
+      data.folderId,
+      data.destinationFolderId
+    )
+  })
+
+export const removeLibraryFolder = createServerFn({ method: "POST" })
+  .validator(removeFolderInputSchema)
+  .handler(async ({ data }) => {
+    setPrivateNoStoreHeaders()
+    const refreshToken = await requireRefreshToken()
+    return trashDriveFolder(refreshToken, data.folderId)
   })
 
 async function requireRefreshToken() {

@@ -11,6 +11,17 @@ export type GoogleTokenCredentials = {
   refreshToken: string
 }
 
+type GoogleTokenError = {
+  response?: { data?: { error?: string } }
+}
+
+export function isGoogleRefreshTokenRejected(error: unknown) {
+  return (
+    (error as GoogleTokenError | null)?.response?.data?.error ===
+    "invalid_grant"
+  )
+}
+
 export function createGoogleOAuthClient() {
   const environment = getServerEnv()
 

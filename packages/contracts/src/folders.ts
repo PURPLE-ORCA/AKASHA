@@ -37,3 +37,29 @@ export function getFolderPath(folders: LibraryFolder[], folderId: string): Libra
 
   return path
 }
+
+export function getFolderDescendantIds(folders: LibraryFolder[], folderId: string) {
+  const childrenByParent = new Map<string, string[]>()
+
+  for (const folder of folders) {
+    if (!folder.parentId) continue
+    const children = childrenByParent.get(folder.parentId) ?? []
+    children.push(folder.id)
+    childrenByParent.set(folder.parentId, children)
+  }
+
+  const descendants = new Set<string>()
+  const pending = [...(childrenByParent.get(folderId) ?? [])]
+  const visited = new Set([folderId])
+
+  while (pending.length > 0) {
+    const descendantId = pending.shift()
+    if (!descendantId || visited.has(descendantId)) continue
+
+    visited.add(descendantId)
+    descendants.add(descendantId)
+    pending.push(...(childrenByParent.get(descendantId) ?? []))
+  }
+
+  return descendants
+}

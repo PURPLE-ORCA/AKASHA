@@ -1,5 +1,9 @@
 export type { FolderTreeNode } from "./folders"
-export { buildFolderTree, getFolderPath } from "./folders"
+export {
+  buildFolderTree,
+  getFolderDescendantIds,
+  getFolderPath,
+} from "./folders"
 export type {
   CaptureDraft,
   CaptureOutcome,

@@ -6,13 +6,20 @@ import {
   SunIcon,
   UploadSimpleIcon,
 } from "@phosphor-icons/react"
-import { Breadcrumbs, Button, ToggleButton, Tooltip } from "@heroui/react"
+import {
+  Breadcrumbs,
+  Button,
+  ToggleButton,
+  Tooltip,
+} from "@heroui/react"
 import { Segment } from "@heroui-pro/react"
 import type { LibraryFolder } from "@akasha/contracts"
 
 import type { ThemePreference } from "@/features/theme/theme"
 import type { DriveLibraryUser } from "@/server/drive/library.server"
 import { LibraryAccountMenu } from "./library-account-menu"
+import { LibraryFilterMenu } from "./library-filter-menu"
+import type { LibrarySortOrder } from "./library-items"
 import { LibraryShortcuts } from "./library-shortcuts"
 
 type LibraryToolbarProps = {
@@ -23,9 +30,11 @@ type LibraryToolbarProps = {
   mediaFilter: "all" | "image" | "video"
   onMediaFilterChange: (filter: "all" | "image" | "video") => void
   onSelectionModeChange: (isSelectionMode: boolean) => void
+  onSortOrderChange: (sortOrder: LibrarySortOrder) => void
   onUpload: () => void
   onThemeChange: (theme: ThemePreference) => void
   onViewChange: (view: "all" | "folders") => void
+  sortOrder: LibrarySortOrder
   theme: ThemePreference
   user?: DriveLibraryUser
 }
@@ -38,9 +47,11 @@ export function LibraryToolbar({
   mediaFilter,
   onMediaFilterChange,
   onSelectionModeChange,
+  onSortOrderChange,
   onThemeChange,
   onUpload,
   onViewChange,
+  sortOrder,
   theme,
   user,
 }: LibraryToolbarProps) {
@@ -58,30 +69,11 @@ export function LibraryToolbar({
       </div>
       <div className="flex w-full flex-wrap items-center gap-3 min-[52rem]:w-auto min-[52rem]:flex-none min-[52rem]:flex-nowrap">
         {activeView === "all" ? (
-          <Tooltip delay={0}>
-            <ToggleButton
-              isIconOnly
-              aria-label={
-                isSelectionMode
-                  ? "Exit selection mode"
-                  : "Select multiple assets"
-              }
-              isDisabled={!canSelect}
-              isSelected={isSelectionMode}
-              size="sm"
-              variant="ghost"
-              onChange={onSelectionModeChange}
-            >
-              {isSelectionMode ? (
-                <SelectionSlashIcon aria-hidden="true" />
-              ) : (
-                <SelectionPlusIcon aria-hidden="true" />
-              )}
-            </ToggleButton>
-            <Tooltip.Content>
-              {isSelectionMode ? "Exit selection mode" : "Select multiple"}
-            </Tooltip.Content>
-          </Tooltip>
+          <SelectionModeButton
+            canSelect={canSelect}
+            isSelectionMode={isSelectionMode}
+            onSelectionModeChange={onSelectionModeChange}
+          />
         ) : null}
         <Tooltip delay={0}>
           <Button
@@ -95,6 +87,14 @@ export function LibraryToolbar({
           </Button>
           <Tooltip.Content>Upload images</Tooltip.Content>
         </Tooltip>
+        {activeView === "all" ? (
+          <LibraryFilterMenu
+            mediaFilter={mediaFilter}
+            onMediaFilterChange={onMediaFilterChange}
+            onSortOrderChange={onSortOrderChange}
+            sortOrder={sortOrder}
+          />
+        ) : null}
         <LibraryShortcuts />
         <Segment
           aria-label="Library views"
@@ -106,23 +106,6 @@ export function LibraryToolbar({
           <Segment.Item id="all">All</Segment.Item>
           <Segment.Item id="folders">Folders</Segment.Item>
         </Segment>
-        {activeView === "all" ? (
-          <Segment
-            aria-label="Media filter"
-            selectedKey={mediaFilter}
-            size="sm"
-            variant="default"
-            onSelectionChange={(key) =>
-              onMediaFilterChange(key as "all" | "image" | "video")
-            }
-          >
-            <Segment.Item aria-label="All media" id="all">
-              All
-            </Segment.Item>
-            <Segment.Item id="image">Images</Segment.Item>
-            <Segment.Item id="video">Videos</Segment.Item>
-          </Segment>
-        ) : null}
         <Segment
           aria-label="Theme"
           selectedKey={theme}
@@ -142,5 +125,44 @@ export function LibraryToolbar({
         <LibraryAccountMenu user={user} />
       </div>
     </header>
+  )
+}
+
+type SelectionModeButtonProps = {
+  canSelect: boolean
+  isSelectionMode: boolean
+  onSelectionModeChange: (isSelectionMode: boolean) => void
+}
+
+function SelectionModeButton({
+  canSelect,
+  isSelectionMode,
+  onSelectionModeChange,
+}: SelectionModeButtonProps) {
+  const label = isSelectionMode
+    ? "Exit selection mode"
+    : "Select multiple assets"
+
+  return (
+    <Tooltip delay={0}>
+      <ToggleButton
+        isIconOnly
+        aria-label={label}
+        isDisabled={!canSelect}
+        isSelected={isSelectionMode}
+        size="sm"
+        variant="ghost"
+        onChange={onSelectionModeChange}
+      >
+        {isSelectionMode ? (
+          <SelectionSlashIcon aria-hidden="true" />
+        ) : (
+          <SelectionPlusIcon aria-hidden="true" />
+        )}
+      </ToggleButton>
+      <Tooltip.Content>
+        {isSelectionMode ? "Exit selection mode" : "Select multiple"}
+      </Tooltip.Content>
+    </Tooltip>
   )
 }
