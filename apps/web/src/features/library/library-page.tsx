@@ -36,6 +36,7 @@ import { LibraryToolbar } from "./library-toolbar"
 import { LibraryDropTarget, LibraryUploader } from "./library-upload"
 import type { LibraryUploaderHandle } from "./library-upload"
 import { MediaGallery } from "./media-gallery"
+import { useLibraryKeyboardShortcuts } from "./use-library-keyboard-shortcuts"
 import {
   createLibraryFolder,
   moveLibraryFolder,
@@ -83,14 +84,10 @@ export function LibraryPage({
     rootFolderId,
     requestedFolderId
   )
-  const folderPath = useMemo(
-    () => getFolderPath(folders, selectedFolderId),
+  const { folderPath, parentFolderId, selectedFolderName } = useMemo(
+    () => getSelectedFolderDetails(folders, selectedFolderId),
     [folders, selectedFolderId]
   )
-  const selectedFolderName = folderPath.at(-1)?.name ?? "Akasha"
-  const parentFolderId = folders.find(
-    (folder) => folder.id === selectedFolderId
-  )?.parentId
   const filteredItems = useMemo(
     () =>
       filterLibraryItems(items, folders, {
@@ -163,93 +160,26 @@ export function LibraryPage({
     setIsSelectionMode(false)
   }, [activeTab, mediaFilter, selectedFolderId])
 
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      const target = event.target instanceof HTMLElement ? event.target : null
-      const isDialogOpen = Boolean(document.querySelector('[role="dialog"]'))
-      const isTyping =
-        target?.matches("input, textarea, select") ||
-        target?.isContentEditable ||
-        Boolean(target?.closest('[contenteditable="true"]'))
-
-      if (event.defaultPrevented || event.repeat) return
-
-      if (
-        (event.metaKey || event.ctrlKey) &&
-        !event.altKey &&
-        event.key.toLowerCase() === "k"
-      ) {
-        event.preventDefault()
-        setCommandOpen((open) => !open)
-        return
-      }
-
-      if (isTyping || event.metaKey || event.ctrlKey || event.altKey) return
-
-      switch (event.key.toLowerCase()) {
-        case "escape":
-          if (isSelectionMode && !isDialogOpen) {
-            event.preventDefault()
-            setIsSelectionMode(false)
-            setSelectedItemIds(new Set())
-          }
-          break
-        case "arrowdown":
-          if (
-            !target?.closest('[role="dialog"]') &&
-            selectedFolderId !== rootFolderId &&
-            onFolderNavigate
-          ) {
-            event.preventDefault()
-            onFolderNavigate(parentFolderId ?? undefined)
-          }
-          break
-        case "d":
-          event.preventDefault()
-          setTheme((current) =>
-            resolveTheme(current) === "dark" ? "light" : "dark"
-          )
-          break
-        case "f":
-          if (activeTab === "all") {
-            event.preventDefault()
-            setMediaFilter((current) => cycleMediaFilter(current))
-          }
-          break
-        case "s":
-          event.preventDefault()
-          setActiveTab((current) => (current === "all" ? "folders" : "all"))
-          break
-        case "m":
-          if (
-            activeTab === "all" &&
-            filteredItems.length > 0 &&
-            !isDialogOpen
-          ) {
-            event.preventDefault()
-            setIsSelectionMode(!isSelectionMode)
-            if (isSelectionMode) setSelectedItemIds(new Set())
-          }
-          break
-        case "u":
-          if (target?.closest('[role="dialog"]')) return
-          event.preventDefault()
-          uploaderRef.current?.openFilePicker()
-          break
-      }
-    }
-
-    window.addEventListener("keydown", onKeyDown)
-    return () => window.removeEventListener("keydown", onKeyDown)
-  }, [
-    activeTab,
-    filteredItems.length,
+  useLibraryKeyboardShortcuts({
+    activeView: activeTab,
+    canGoToParent:
+      selectedFolderId !== rootFolderId && Boolean(onFolderNavigate),
+    hasItems: filteredItems.length > 0,
     isSelectionMode,
-    onFolderNavigate,
-    parentFolderId,
-    rootFolderId,
-    selectedFolderId,
-  ])
+    onCommandPaletteToggle: () => setCommandOpen((open) => !open),
+    onExitSelection: exitSelectionMode,
+    onGoToParent: () => onFolderNavigate?.(parentFolderId ?? undefined),
+    onMediaFilterCycle: () =>
+      setMediaFilter((current) => cycleMediaFilter(current)),
+    onSelectionModeToggle: () => changeSelectionMode(!isSelectionMode),
+    onThemeToggle: () =>
+      setTheme((current) =>
+        resolveTheme(current) === "dark" ? "light" : "dark"
+      ),
+    onUpload: () => uploaderRef.current?.openFilePicker(),
+    onViewToggle: () =>
+      setActiveTab((current) => (current === "all" ? "folders" : "all")),
+  })
 
   async function createFolder(name: string) {
     await createLibraryFolder({
@@ -323,6 +253,47 @@ export function LibraryPage({
     exitSelectionMode()
   }
 
+  function renderLibraryContent() {
+    if (activeTab === "folders") {
+      return (
+        <FolderGallery
+          folders={visibleFolders}
+          items={items}
+          libraryFolders={folders}
+          onMoveFolder={setFolderToMove}
+          onRemoveFolder={setFolderToRemove}
+          onRenameFolder={setFolderToRename}
+        />
+      )
+    }
+
+    if (isLibraryEmpty) {
+      return (
+        <LibraryEmptyState
+          onCreateFolder={createFolder}
+          onUpload={() => uploaderRef.current?.openFilePicker()}
+        />
+      )
+    }
+
+    return (
+      <MediaGallery
+        emptyMessage={searchQuery.trim() ? "No matching media." : undefined}
+        isSelectionMode={isSelectionMode}
+        items={filteredItems}
+        onMoveItem={(itemId) => setMoveItemIds([itemId])}
+        onOpenFolder={(folderId) => {
+          if (folderId !== selectedFolderId && onFolderNavigate) {
+            onFolderNavigate(folderId)
+          }
+        }}
+        onRemoveItem={(itemId) => setRemoveItemIds([itemId])}
+        onSelectionChange={changeItemSelection}
+        selectedItemIds={selectedItemIds}
+      />
+    )
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground">
       <LibraryToolbar
@@ -365,40 +336,7 @@ export function LibraryPage({
                 <Typography type="h1">{selectedFolderName}</Typography>
               </div>
               <div className="min-h-[calc(100svh-10rem)]">
-                {activeTab === "all" ? (
-                  isLibraryEmpty ? (
-                    <LibraryEmptyState
-                      onCreateFolder={createFolder}
-                      onUpload={() => uploaderRef.current?.openFilePicker()}
-                    />
-                  ) : (
-                    <MediaGallery
-                      emptyMessage={
-                        searchQuery.trim() ? "No matching media." : undefined
-                      }
-                      isSelectionMode={isSelectionMode}
-                      items={filteredItems}
-                      onMoveItem={(itemId) => setMoveItemIds([itemId])}
-                      onOpenFolder={(folderId) => {
-                        if (folderId !== selectedFolderId && onFolderNavigate) {
-                          onFolderNavigate(folderId)
-                        }
-                      }}
-                      onRemoveItem={(itemId) => setRemoveItemIds([itemId])}
-                      onSelectionChange={changeItemSelection}
-                      selectedItemIds={selectedItemIds}
-                    />
-                  )
-                ) : (
-                  <FolderGallery
-                    folders={visibleFolders}
-                    items={items}
-                    libraryFolders={folders}
-                    onMoveFolder={setFolderToMove}
-                    onRemoveFolder={setFolderToRemove}
-                    onRenameFolder={setFolderToRename}
-                  />
-                )}
+                {renderLibraryContent()}
               </div>
             </main>
           </ContextMenu.Trigger>
@@ -499,4 +437,18 @@ function getSelectedFolderId(
     folders.some((folder) => folder.id === requestedFolderId)
     ? requestedFolderId
     : rootFolderId
+}
+
+function getSelectedFolderDetails(
+  folders: LibraryFolder[],
+  selectedFolderId: string
+) {
+  const folderPath = getFolderPath(folders, selectedFolderId)
+
+  return {
+    folderPath,
+    parentFolderId: folders.find((folder) => folder.id === selectedFolderId)
+      ?.parentId,
+    selectedFolderName: folderPath.at(-1)?.name ?? "Akasha",
+  }
 }
