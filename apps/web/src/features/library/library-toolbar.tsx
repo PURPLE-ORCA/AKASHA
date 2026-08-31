@@ -18,8 +18,8 @@ import type { LibraryFolder } from "@akasha/contracts"
 import type { ThemePreference } from "@/features/theme/theme"
 import type { DriveLibraryUser } from "@/server/drive/library.server"
 import { LibraryAccountMenu } from "./library-account-menu"
+import { LibraryFilterMenu } from "./library-filter-menu"
 import type { LibrarySortOrder } from "./library-items"
-import { LibrarySearchControls } from "./library-search-controls"
 import { LibraryShortcuts } from "./library-shortcuts"
 
 type LibraryToolbarProps = {
@@ -29,13 +29,11 @@ type LibraryToolbarProps = {
   isSelectionMode: boolean
   mediaFilter: "all" | "image" | "video"
   onMediaFilterChange: (filter: "all" | "image" | "video") => void
-  onSearchQueryChange: (query: string) => void
   onSelectionModeChange: (isSelectionMode: boolean) => void
   onSortOrderChange: (sortOrder: LibrarySortOrder) => void
   onUpload: () => void
   onThemeChange: (theme: ThemePreference) => void
   onViewChange: (view: "all" | "folders") => void
-  searchQuery: string
   sortOrder: LibrarySortOrder
   theme: ThemePreference
   user?: DriveLibraryUser
@@ -48,13 +46,11 @@ export function LibraryToolbar({
   isSelectionMode,
   mediaFilter,
   onMediaFilterChange,
-  onSearchQueryChange,
   onSelectionModeChange,
   onSortOrderChange,
   onThemeChange,
   onUpload,
   onViewChange,
-  searchQuery,
   sortOrder,
   theme,
   user,
@@ -72,14 +68,6 @@ export function LibraryToolbar({
         </Breadcrumbs>
       </div>
       <div className="flex w-full flex-wrap items-center gap-3 min-[52rem]:w-auto min-[52rem]:flex-none min-[52rem]:flex-nowrap">
-        {activeView === "all" ? (
-          <LibrarySearchControls
-            onSearchQueryChange={onSearchQueryChange}
-            onSortOrderChange={onSortOrderChange}
-            searchQuery={searchQuery}
-            sortOrder={sortOrder}
-          />
-        ) : null}
         {activeView === "all" ? (
           <SelectionModeButton
             canSelect={canSelect}
@@ -99,6 +87,14 @@ export function LibraryToolbar({
           </Button>
           <Tooltip.Content>Upload images</Tooltip.Content>
         </Tooltip>
+        {activeView === "all" ? (
+          <LibraryFilterMenu
+            mediaFilter={mediaFilter}
+            onMediaFilterChange={onMediaFilterChange}
+            onSortOrderChange={onSortOrderChange}
+            sortOrder={sortOrder}
+          />
+        ) : null}
         <LibraryShortcuts />
         <Segment
           aria-label="Library views"
@@ -110,23 +106,6 @@ export function LibraryToolbar({
           <Segment.Item id="all">All</Segment.Item>
           <Segment.Item id="folders">Folders</Segment.Item>
         </Segment>
-        {activeView === "all" ? (
-          <Segment
-            aria-label="Media filter"
-            selectedKey={mediaFilter}
-            size="sm"
-            variant="default"
-            onSelectionChange={(key) =>
-              onMediaFilterChange(key as "all" | "image" | "video")
-            }
-          >
-            <Segment.Item aria-label="All media" id="all">
-              All
-            </Segment.Item>
-            <Segment.Item id="image">Images</Segment.Item>
-            <Segment.Item id="video">Videos</Segment.Item>
-          </Segment>
-        ) : null}
         <Segment
           aria-label="Theme"
           selectedKey={theme}

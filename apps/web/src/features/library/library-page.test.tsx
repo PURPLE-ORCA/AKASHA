@@ -1,7 +1,13 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { LibraryPage } from "./library-page"
 
@@ -19,9 +25,14 @@ vi.mock("@tanstack/react-router", async () => {
   }
 })
 
+beforeEach(() => {
+  vi.stubGlobal("CSS", { escape: (value: string) => value })
+})
+
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
 })
 
 describe("LibraryPage", () => {
@@ -291,7 +302,7 @@ describe("LibraryPage", () => {
     expect(screen.queryByText("Connected reference")).toBeNull()
   })
 
-  it("filters the library between images and videos", () => {
+  it("filters the library from the icon-only menu", () => {
     render(
       <LibraryPage
         initialSnapshot={{
@@ -327,7 +338,10 @@ describe("LibraryPage", () => {
       />
     )
 
-    fireEvent.click(screen.getByRole("radio", { name: "Videos" }))
+    expect(screen.queryByRole("searchbox", { name: "Search library" })).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: "Filter and sort" }))
+    fireEvent.click(screen.getByText("Videos"))
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" })
     expect(
       screen.getByRole("button", { name: "Open Video reference" })
     ).toBeTruthy()
@@ -342,7 +356,9 @@ describe("LibraryPage", () => {
     expect(video?.getAttribute("src")).toBe("/api/media/video-file")
     fireEvent.click(screen.getByRole("button", { name: "Close" }))
 
-    fireEvent.click(screen.getByRole("radio", { name: "Images" }))
+    fireEvent.click(screen.getByRole("button", { name: "Filter and sort" }))
+    fireEvent.click(screen.getByText("Images"))
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" })
     expect(
       screen.getByRole("button", { name: "Open Image reference" })
     ).toBeTruthy()
@@ -367,55 +383,42 @@ describe("LibraryPage", () => {
     ).toBeTruthy()
   })
 
-  it("searches the full library and shows newest captures first", () => {
-    const onFolderNavigate = vi.fn()
-
+  it("sorts the library from the icon-only menu", () => {
     render(
       <LibraryPage
         initialSnapshot={{
-          folders: [
-            { id: "editorial", name: "Editorial", parentId: null },
-            { id: "motion", name: "Motion", parentId: null },
-          ],
+          folders: [],
           items: [
             createLibraryItem(
               "older",
-              "Older landing",
-              "editorial",
+              "Alpha older",
+              "root",
               "2026-08-20T10:00:00.000Z"
             ),
             createLibraryItem(
               "newer",
-              "Newest motion",
-              "motion",
+              "Zulu newest",
+              "root",
               "2026-08-30T10:00:00.000Z"
             ),
           ],
           rootFolderId: "root",
         }}
-        onFolderNavigate={onFolderNavigate}
-        requestedFolderId="editorial"
       />
     )
 
+    const gallery = within(screen.getByLabelText("Saved media"))
     expect(
-      screen.getByRole("button", { name: "Open Older landing" })
-    ).toBeTruthy()
-    expect(
-      screen.queryByRole("button", { name: "Open Newest motion" })
-    ).toBeNull()
+      gallery.getAllByRole("button").map((button) => button.ariaLabel)
+    ).toEqual(["Open Zulu newest", "Open Alpha older"])
 
-    fireEvent.change(screen.getByRole("searchbox", { name: "Search library" }), {
-      target: { value: "motion" },
-    })
+    fireEvent.click(screen.getByRole("button", { name: "Filter and sort" }))
+    fireEvent.click(screen.getByText("Title"))
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" })
 
-    expect(onFolderNavigate).toHaveBeenCalledWith()
     expect(
-      screen.getByRole("button", { name: "Open Newest motion" })
-    ).toBeTruthy()
-    expect(
-      screen.queryByRole("button", { name: "Open Older landing" })
-    ).toBeNull()
+      gallery.getAllByRole("button").map((button) => button.ariaLabel)
+    ).toEqual(["Open Alpha older", "Open Zulu newest"])
   })
 })
 

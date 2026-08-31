@@ -63,7 +63,6 @@ export function LibraryPage({
   const [mediaFilter, setMediaFilter] = useState<"all" | "image" | "video">(
     "all"
   )
-  const [searchQuery, setSearchQuery] = useState("")
   const [sortOrder, setSortOrder] = useState<LibrarySortOrder>("newest")
   const [commandOpen, setCommandOpen] = useState(false)
   const [createFolderOpen, setCreateFolderOpen] = useState(false)
@@ -90,22 +89,13 @@ export function LibraryPage({
   )
   const filteredItems = useMemo(
     () =>
-      filterLibraryItems(items, folders, {
+      filterLibraryItems(items, {
         mediaFilter,
-        query: searchQuery,
         rootFolderId,
         selectedFolderId,
         sortOrder,
       }),
-    [
-      folders,
-      items,
-      mediaFilter,
-      rootFolderId,
-      searchQuery,
-      selectedFolderId,
-      sortOrder,
-    ]
+    [items, mediaFilter, rootFolderId, selectedFolderId, sortOrder]
   )
   const visibleFolders = useMemo(
     () =>
@@ -210,14 +200,6 @@ export function LibraryPage({
     await onRefresh()
   }
 
-  function changeSearchQuery(query: string) {
-    setSearchQuery(query)
-    if (!query.trim()) return
-
-    setActiveTab("all")
-    if (selectedFolderId !== rootFolderId) onFolderNavigate?.()
-  }
-
   function changeSelectionMode(nextSelectionMode: boolean) {
     setIsSelectionMode(nextSelectionMode)
     if (!nextSelectionMode) setSelectedItemIds(new Set())
@@ -278,7 +260,6 @@ export function LibraryPage({
 
     return (
       <MediaGallery
-        emptyMessage={searchQuery.trim() ? "No matching media." : undefined}
         isSelectionMode={isSelectionMode}
         items={filteredItems}
         onMoveItem={(itemId) => setMoveItemIds([itemId])}
@@ -303,13 +284,11 @@ export function LibraryPage({
         isSelectionMode={isSelectionMode}
         mediaFilter={mediaFilter}
         onMediaFilterChange={setMediaFilter}
-        onSearchQueryChange={changeSearchQuery}
         onSelectionModeChange={changeSelectionMode}
         onSortOrderChange={setSortOrder}
         onThemeChange={setTheme}
         onUpload={() => uploaderRef.current?.openFilePicker()}
         onViewChange={setActiveTab}
-        searchQuery={searchQuery}
         sortOrder={sortOrder}
         theme={theme}
         user={initialSnapshot.user}
