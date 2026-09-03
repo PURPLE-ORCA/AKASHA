@@ -1,11 +1,20 @@
 import { ApertureIcon } from "@phosphor-icons/react"
 import { Typography } from "@heroui/react"
 
-export function AkashaBrand() {
+type AkashaBrandProps = {
+  className?: string
+  showIcon?: boolean
+}
+
+export function AkashaBrand({ className, showIcon = true }: AkashaBrandProps) {
   return (
-    <div className="flex items-center gap-3 font-heading text-accent">
-      <ApertureIcon aria-hidden="true" size={28} />
-      <Typography type="h4">Akasha</Typography>
+    <div
+      className={`flex items-center gap-3 font-heading ${className ?? "text-accent"}`}
+    >
+      {showIcon ? <ApertureIcon aria-hidden="true" size={28} /> : null}
+      <Typography className="text-inherit" type="h4">
+        AKASHA
+      </Typography>
     </div>
   )
 }
