@@ -50,7 +50,7 @@ describe("Drive media proxy", () => {
     expect(response.body).toBeNull()
   })
 
-  it("caches signed thumbnail previews across sessions", () => {
+  it("caches stable thumbnail previews in the private browser cache", () => {
     const response = createThumbnailProxyResponse(
       new Response("image", {
         headers: {
@@ -61,9 +61,11 @@ describe("Drive media proxy", () => {
     )
 
     expect(response.headers.get("Cache-Control")).toBe(
-      "public, max-age=86400, s-maxage=86400, immutable"
+      "private, max-age=86400, immutable"
     )
-    expect(response.headers.has("Vary")).toBe(false)
+    expect(response.headers.get("Vary")).toBe(
+      "Cookie, Authorization, Range"
+    )
     expect(response.headers.get("Content-Type")).toBe("image/webp")
     expect(response.headers.get("ETag")).toBe('"thumbnail-etag"')
   })

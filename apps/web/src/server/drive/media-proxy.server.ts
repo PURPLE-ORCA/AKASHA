@@ -34,8 +34,7 @@ export function createMediaProxyResponse(driveResponse: Response) {
 export function createThumbnailProxyResponse(driveResponse: Response) {
   return createProxyResponse(
     driveResponse,
-    "public, max-age=86400, s-maxage=86400, immutable",
-    false
+    "private, max-age=86400, immutable"
   )
 }
 
