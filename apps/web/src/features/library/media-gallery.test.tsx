@@ -216,34 +216,6 @@ describe("MediaGallery image loading", () => {
     expect(preview?.getAttribute("height")).toBe("1200")
   })
 
-  it("starts loading the original when pointer intent is clear", () => {
-    const requestedUrls: string[] = []
-    const OriginalImage = window.Image
-    vi.stubGlobal(
-      "Image",
-      class {
-        decoding = "auto"
-
-        set src(value: string) {
-          requestedUrls.push(value)
-        }
-      }
-    )
-    renderGallery([
-      createItem("image", {
-        driveFileId: "intent image",
-        id: "intent-image",
-      }),
-    ])
-
-    fireEvent.pointerEnter(
-      screen.getByRole("button", { name: "Open image reference" })
-    )
-
-    expect(requestedUrls).toEqual(["/api/media/intent%20image"])
-    vi.stubGlobal("Image", OriginalImage)
-  })
-
   it("keeps a clean fallback when a preview fails", () => {
     renderGallery([createItem("image")])
 
@@ -255,7 +227,7 @@ describe("MediaGallery image loading", () => {
     ).toBeTruthy()
   })
 
-  it("resets original readiness after keyboard navigation", () => {
+  it("does not hide the original while it loads", () => {
     renderGallery([
       createItem("image", { id: "first", title: "First" }),
       createItem("image", {
@@ -267,14 +239,25 @@ describe("MediaGallery image loading", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Open First" }))
     const dialog = screen.getByRole("dialog")
-    const firstOriginal = within(dialog).getByRole("img", {
-      name: "First",
-    })
-    fireEvent.load(firstOriginal)
+    expect(
+      within(dialog).getByRole("img", { name: "First" }).className
+    ).not.toContain("opacity-0")
 
     fireEvent.keyDown(window, { key: "ArrowRight" })
     const secondOriginal = within(dialog).getByRole("img", { name: "Second" })
 
-    expect(secondOriginal.className).not.toContain("opacity-100")
+    expect(secondOriginal.className).not.toContain("opacity-0")
+  })
+
+  it("renders every item before lazy image loading begins", () => {
+    const items = Array.from({ length: 50 }, (_, index) =>
+      createItem("image", { id: `image-${index}`, title: `Image ${index}` })
+    )
+
+    renderGallery(items)
+
+    expect(
+      screen.getAllByRole("button", { name: /^Open Image / })
+    ).toHaveLength(50)
   })
 })

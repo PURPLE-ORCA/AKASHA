@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -15,8 +15,6 @@ import { Button, Checkbox, Label, Modal, Typography } from "@heroui/react"
 import { ContextMenu } from "@heroui-pro/react"
 import type { LibraryItem } from "@akasha/contracts"
 
-const INITIAL_RENDER_COUNT = 48
-const RENDER_BATCH_SIZE = 48
 const PRIORITY_IMAGE_COUNT = 2
 
 type MediaGalleryProps = {
@@ -40,34 +38,9 @@ export function MediaGallery({
   onSelectionChange,
   selectedItemIds,
 }: MediaGalleryProps) {
-  const displayItems = useMemo(() => items, [items])
   const [activeIndex, setActiveIndex] = useState<number | null>(null)
-  const [visibleCount, setVisibleCount] = useState(INITIAL_RENDER_COUNT)
-  const loadMoreRef = useRef<HTMLDivElement | null>(null)
 
-  useEffect(() => {
-    setVisibleCount(INITIAL_RENDER_COUNT)
-  }, [displayItems])
-
-  useEffect(() => {
-    const target = loadMoreRef.current
-    if (!target || visibleCount >= displayItems.length) return
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (!entries[0]?.isIntersecting) return
-        setVisibleCount((count) =>
-          Math.min(displayItems.length, count + RENDER_BATCH_SIZE)
-        )
-      },
-      { rootMargin: "1000px 0px" }
-    )
-
-    observer.observe(target)
-    return () => observer.disconnect()
-  }, [displayItems.length, visibleCount])
-
-  if (displayItems.length === 0) {
+  if (items.length === 0) {
     return (
       <div className="grid min-h-[28rem] place-items-center">
         <Typography color="muted">{emptyMessage}</Typography>
@@ -81,7 +54,7 @@ export function MediaGallery({
         aria-label="Saved media"
         className="columns-1 gap-4 sm:columns-2 min-[56rem]:columns-3 min-[76rem]:columns-4 min-[100rem]:columns-5"
       >
-        {displayItems.slice(0, visibleCount).map((item, index) => (
+        {items.map((item, index) => (
           <MediaCard
             isSelected={selectedItemIds.has(item.id)}
             isSelectionMode={isSelectionMode}
@@ -98,12 +71,9 @@ export function MediaGallery({
           />
         ))}
       </div>
-      {visibleCount < displayItems.length ? (
-        <div aria-hidden="true" className="h-px" ref={loadMoreRef} />
-      ) : null}
       <MediaLightbox
         activeIndex={activeIndex}
-        items={displayItems}
+        items={items}
         onActiveIndexChange={setActiveIndex}
       />
     </>
@@ -134,7 +104,7 @@ function MediaCard({
   priority,
 }: MediaCardProps) {
   const [hasImageError, setHasImageError] = useState(false)
-  const [isImageLoaded, setIsImageLoaded] = useState(false)
+  const hasIntrinsicSize = Boolean(item.width && item.height)
   const card = (
     <div
       className={`relative mb-4 break-inside-avoid rounded-2xl ${isSelected ? "ring-2 ring-accent ring-offset-2 ring-offset-background" : ""}`}
@@ -165,9 +135,6 @@ function MediaCard({
         onClick={
           isSelectionMode ? () => onSelectionChange(!isSelected) : onOpen
         }
-        onFocus={() => {
-          if (!isSelectionMode) preloadOriginalImage(item)
-        }}
         onKeyDown={(event) => {
           if (
             isSelectionMode ||
@@ -183,24 +150,20 @@ function MediaCard({
           event.preventDefault()
           onOpenFolder()
         }}
-        onPointerEnter={() => {
-          if (!isSelectionMode) preloadOriginalImage(item)
-        }}
         type="button"
       >
         <span
-          className={`relative block w-full overflow-hidden bg-surface-secondary ${item.kind === "video" ? "aspect-video min-h-40" : ""}`}
+          className={`relative block w-full overflow-hidden bg-surface-secondary ${item.kind === "video" ? "aspect-video min-h-40" : hasIntrinsicSize ? "" : "aspect-square min-h-40"}`}
         >
           {item.thumbnailUrl && !hasImageError ? (
             <img
               alt={item.title}
-              className={`block w-full opacity-0 transition-opacity duration-150 motion-reduce:transition-none ${isImageLoaded ? "opacity-100" : ""} ${item.kind === "video" ? "h-full object-cover" : "h-auto"}`}
+              className={`block w-full ${item.kind === "video" || !hasIntrinsicSize ? "h-full object-cover" : "h-auto"}`}
               decoding="async"
               fetchPriority={priority ? "high" : "auto"}
               height={item.height}
               loading={priority ? "eager" : "lazy"}
               onError={() => setHasImageError(true)}
-              onLoad={() => setIsImageLoaded(true)}
               src={item.thumbnailUrl}
               width={item.width}
             />
@@ -458,7 +421,6 @@ function ProgressiveImage({
 }) {
   const [hasOriginalError, setHasOriginalError] = useState(false)
   const [hasPreviewError, setHasPreviewError] = useState(false)
-  const [isOriginalReady, setIsOriginalReady] = useState(false)
   const originalUrl = `/api/media/${encodeURIComponent(item.driveFileId)}`
 
   return (
@@ -484,32 +446,17 @@ function ProgressiveImage({
       {!hasOriginalError ? (
         <img
           alt={item.title}
-          className={`block max-h-[calc(100dvh-6rem)] max-w-[min(100%,100rem)] object-contain opacity-0 transition-opacity duration-150 [grid-area:1/1] motion-reduce:transition-none ${isOriginalReady ? "opacity-100" : ""}`}
+          className="block max-h-[calc(100dvh-6rem)] max-w-[min(100%,100rem)] object-contain [grid-area:1/1]"
           decoding="async"
           fetchPriority="high"
           height={item.height}
           onError={() => setHasOriginalError(true)}
-          onLoad={() => setIsOriginalReady(true)}
           src={originalUrl}
           width={item.width}
         />
       ) : null}
     </div>
   )
-}
-
-const preloadedOriginalUrls = new Set<string>()
-
-function preloadOriginalImage(item: LibraryItem) {
-  if (item.kind !== "image") return
-
-  const originalUrl = `/api/media/${encodeURIComponent(item.driveFileId)}`
-  if (preloadedOriginalUrls.has(originalUrl)) return
-
-  preloadedOriginalUrls.add(originalUrl)
-  const image = new Image()
-  image.decoding = "async"
-  image.src = originalUrl
 }
 
 function MediaPlaceholder({ kind }: { kind: LibraryItem["kind"] }) {
