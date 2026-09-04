@@ -11,6 +11,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { LibraryPage } from "./library-page"
 
+const actionMocks = vi.hoisted(() => ({
+  createLibraryFolder: vi.fn(),
+  moveLibraryFolder: vi.fn(),
+  moveLibraryItems: vi.fn(),
+  removeLibraryFolder: vi.fn(),
+  removeLibraryItems: vi.fn(),
+  renameLibraryFolder: vi.fn(),
+}))
+
+vi.mock("./library.functions", () => actionMocks)
+
 vi.mock("@tanstack/react-router", async () => {
   const { forwardRef } = await import("react")
 
@@ -27,6 +38,7 @@ vi.mock("@tanstack/react-router", async () => {
 
 beforeEach(() => {
   vi.stubGlobal("CSS", { escape: (value: string) => value })
+  for (const action of Object.values(actionMocks)) action.mockReset()
 })
 
 afterEach(() => {
@@ -59,6 +71,36 @@ describe("LibraryPage", () => {
       screen.getAllByRole("button", { name: "Upload images" })
     ).toHaveLength(2)
     expect(screen.queryByRole("img")).toBeNull()
+  })
+
+  it("adds a created folder without reloading the Drive library", async () => {
+    const onRefresh = vi.fn()
+    actionMocks.createLibraryFolder.mockResolvedValueOnce({
+      id: "design",
+      name: "Design",
+    })
+    render(
+      <LibraryPage
+        initialSnapshot={{ folders: [], items: [], rootFolderId: "root" }}
+        onRefresh={onRefresh}
+      />
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Create folder" }))
+    const dialog = screen.getByRole("dialog")
+    fireEvent.change(
+      within(dialog).getByRole("textbox", { name: "Folder name" }),
+      { target: { value: "Design" } }
+    )
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Create folder" })
+    )
+
+    await screen.findByText("No media here yet.")
+    fireEvent.click(screen.getByRole("radio", { name: "Folders" }))
+
+    expect(await screen.findByText("Design")).toBeTruthy()
+    expect(onRefresh).not.toHaveBeenCalled()
   })
 
   it("opens the image picker with the U shortcut", () => {
