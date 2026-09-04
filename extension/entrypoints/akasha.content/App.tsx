@@ -158,7 +158,7 @@ export default function App({ onClose }: { onClose: () => void }) {
               <div className="folder-field">
                 <span>Folder</span>
                 <details className="folder-picker" ref={folderPickerRef}>
-                  <summary>
+                  <summary aria-label={`Folder, ${selectedFolder?.label ?? "Akasha"}`}>
                     <FolderIcon aria-hidden="true" />
                     <span>{selectedFolder?.label ?? "Akasha"}</span>
                     <CaretDownIcon aria-hidden="true" />
