@@ -46,6 +46,7 @@ describe("Drive library thumbnails", () => {
     expect(snapshot.items[1]?.thumbnailUrl).toBeUndefined()
     expect(getThumbnailPayload(snapshot.items[0]?.thumbnailUrl)).toMatchObject({
       fileId: "image-with-preview",
+      thumbnailUrl: "https://lh3.googleusercontent.com/preview",
     })
   })
 

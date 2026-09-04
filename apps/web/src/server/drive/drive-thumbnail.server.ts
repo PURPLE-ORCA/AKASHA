@@ -7,6 +7,7 @@ const MAX_REDIRECTS = 5
 type DriveThumbnailTokenPayload = {
   expiresAt: number
   fileId: string
+  thumbnailUrl: string
   version: typeof TOKEN_VERSION
 }
 
@@ -17,11 +18,15 @@ type CreateDriveThumbnailTokenOptions = {
 
 export function createDriveThumbnailToken(
   fileId: string,
+  thumbnailUrl: string,
   { now = Date.now(), secret }: CreateDriveThumbnailTokenOptions
 ) {
+  assertGoogleThumbnailUrl(thumbnailUrl)
+
   const payload: DriveThumbnailTokenPayload = {
     expiresAt: (Math.floor(now / TOKEN_BUCKET_MS) + 2) * TOKEN_BUCKET_MS,
     fileId,
+    thumbnailUrl,
     version: TOKEN_VERSION,
   }
   const encodedPayload = Buffer.from(JSON.stringify(payload)).toString(
@@ -33,9 +38,10 @@ export function createDriveThumbnailToken(
 
 export function createDriveThumbnailUrl(
   fileId: string,
+  thumbnailUrl: string,
   options: CreateDriveThumbnailTokenOptions
 ) {
-  const token = createDriveThumbnailToken(fileId, options)
+  const token = createDriveThumbnailToken(fileId, thumbnailUrl, options)
   return `/api/media/${encodeURIComponent(fileId)}?preview=${encodeURIComponent(token)}`
 }
 
@@ -67,11 +73,14 @@ export function verifyDriveThumbnailToken(
   if (
     payload.version !== TOKEN_VERSION ||
     typeof payload.fileId !== "string" ||
+    typeof payload.thumbnailUrl !== "string" ||
     typeof payload.expiresAt !== "number" ||
     payload.expiresAt <= now
   ) {
     throw new Error("Expired or invalid thumbnail token.")
   }
+
+  assertGoogleThumbnailUrl(payload.thumbnailUrl)
 
   return payload as DriveThumbnailTokenPayload
 }

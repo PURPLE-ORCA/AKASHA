@@ -170,7 +170,10 @@ type CaptureMetadata = {
   width?: number
 }
 
-type ThumbnailUrlFactory = (fileId: string) => string | undefined
+type ThumbnailUrlFactory = (
+  fileId: string,
+  thumbnailUrl: string
+) => string | undefined
 
 type ThumbnailContext = {
   createThumbnailUrl: ThumbnailUrlFactory
@@ -195,7 +198,7 @@ function getThumbnailUrl(
 
   if (file.appProperties?.stillroomKind !== "video") {
     return file.id && file.thumbnailLink
-      ? thumbnailContext.createThumbnailUrl(file.id)
+      ? thumbnailContext.createThumbnailUrl(file.id, file.thumbnailLink)
       : undefined
   }
 
@@ -211,21 +214,24 @@ function getThumbnailUrl(
       : undefined
 
   if (validPoster?.id && validPoster.thumbnailLink) {
-    return thumbnailContext.createThumbnailUrl(validPoster.id)
+    return thumbnailContext.createThumbnailUrl(
+      validPoster.id,
+      validPoster.thumbnailLink
+    )
   }
 
   if (file.id && file.thumbnailLink) {
-    return thumbnailContext.createThumbnailUrl(file.id)
+    return thumbnailContext.createThumbnailUrl(file.id, file.thumbnailLink)
   }
 
   return captureMetadata.thumbnailUrl
 }
 
-function createDefaultThumbnailUrl(fileId: string) {
+function createDefaultThumbnailUrl(fileId: string, thumbnailUrl: string) {
   const secret = process.env.SESSION_SECRET
   if (!secret) return undefined
 
-  return createDriveThumbnailUrl(fileId, { secret })
+  return createDriveThumbnailUrl(fileId, thumbnailUrl, { secret })
 }
 
 function parseByteSize(size?: string | null) {

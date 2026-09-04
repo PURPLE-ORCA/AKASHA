@@ -52,20 +52,27 @@ export const Route = createFileRoute("/api/media/$fileId")({
             return new Response("Media could not be loaded.", { status: 400 })
           }
 
-          const drive = createDriveClient(credentials)
-          const file = await drive.files.get({
-            fields: "thumbnailLink",
-            fileId: params.fileId,
-          })
-          if (!file.data.thumbnailLink) {
-            return new Response("Media could not be loaded.", { status: 404 })
-          }
-
-          const thumbnailResponse = await fetchDriveThumbnail(
-            file.data.thumbnailLink,
+          let thumbnailResponse = await fetchDriveThumbnail(
+            thumbnailPayload.thumbnailUrl,
             credentials.accessToken,
             request.headers
           )
+
+          if ([401, 403, 404].includes(thumbnailResponse.status)) {
+            const drive = createDriveClient(credentials)
+            const refreshedFile = await drive.files.get({
+              fields: "thumbnailLink",
+              fileId: params.fileId,
+            })
+
+            if (refreshedFile.data.thumbnailLink) {
+              thumbnailResponse = await fetchDriveThumbnail(
+                refreshedFile.data.thumbnailLink,
+                credentials.accessToken,
+                request.headers
+              )
+            }
+          }
 
           if (!thumbnailResponse.ok && thumbnailResponse.status !== 304) {
             return new Response("Media could not be loaded.", {
