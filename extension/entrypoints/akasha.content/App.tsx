@@ -65,7 +65,14 @@ export default function App({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose()
+      if (event.key !== "Escape") return
+      if (folderPickerRef.current?.open) {
+        event.preventDefault()
+        folderPickerRef.current.open = false
+        folderPickerRef.current.querySelector("summary")?.focus()
+        return
+      }
+      onClose()
     }
 
     window.addEventListener("keydown", onKeyDown)
@@ -156,13 +163,12 @@ export default function App({ onClose }: { onClose: () => void }) {
                     <span>{selectedFolder?.label ?? "Akasha"}</span>
                     <CaretDownIcon aria-hidden="true" />
                   </summary>
-                  <div aria-label="Folder" className="folder-options" role="listbox">
+                  <div className="folder-options">
                     {folders.map((folder) => (
                       <button
-                        aria-selected={folder.id === selectedFolderId}
+                        aria-pressed={folder.id === selectedFolderId}
                         key={folder.id}
                         onClick={() => void handleFolderChange(folder.id)}
-                        role="option"
                         style={{ paddingInlineStart: `${12 + folder.depth * 18}px` }}
                         type="button"
                       >

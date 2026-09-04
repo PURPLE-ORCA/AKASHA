@@ -245,7 +245,7 @@ p {
 }
 
 .folder-options button:hover,
-.folder-options button[aria-selected="true"] {
+.folder-options button[aria-pressed="true"] {
   background: color-mix(in oklch, var(--akasha-accent), transparent 84%);
 }
 

@@ -8,7 +8,6 @@ import {
 } from "@/utils/akasha-api"
 import { createCaptureDraft } from "@/utils/capture"
 import { createCaptureResultNotification } from "@/utils/capture-result"
-import { isFolderCacheFresh } from "@/utils/folder-cache"
 import type { ExtensionRequest, ExtensionResponse, OpenCapturePanelMessage } from "@/utils/messages"
 import {
   type CaptureOutboxJob,
@@ -29,6 +28,7 @@ const OUTBOX_ALARM_NAME = "akasha-capture-outbox"
 const DEDUPE_BACKFILL_ALARM_NAME = "akasha-dedupe-backfill"
 const FAILED_NOTIFICATION_PREFIX = "akasha-save-failed:"
 const CAPTURE_PANEL_FILE = "content-scripts/akasha.js" as ScriptPublicPath
+const FOLDER_CACHE_TTL_MS = 5 * 60 * 1000
 
 let storageMutation = Promise.resolve()
 let outboxExecution: Promise<void> | null = null
@@ -388,7 +388,7 @@ async function getFolderOptions() {
   const cached = await folderOptionsCacheStorage.getValue()
 
   if (cached) {
-    if (!isFolderCacheFresh(cached.cachedAt)) {
+    if (Date.now() - cached.cachedAt >= FOLDER_CACHE_TTL_MS) {
       queueMicrotask(() => void refreshFolderOptions().catch(() => undefined))
     }
     return cached.folders
