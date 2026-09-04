@@ -27,25 +27,33 @@ export function createDriveMediaRequestHeaders(
 export function createMediaProxyResponse(driveResponse: Response) {
   return createProxyResponse(
     driveResponse,
-    "private, max-age=300, stale-while-revalidate=3600"
+    "private, max-age=86400, immutable"
   )
 }
 
 export function createThumbnailProxyResponse(driveResponse: Response) {
   return createProxyResponse(
     driveResponse,
-    "private, max-age=3600, stale-while-revalidate=86400"
+    "public, max-age=86400, s-maxage=86400, immutable",
+    false
   )
 }
 
-function createProxyResponse(driveResponse: Response, cacheControl: string) {
+function createProxyResponse(
+  driveResponse: Response,
+  cacheControl: string,
+  variesBySession = true
+) {
   const responseHeaders = new Headers({
     "Cache-Control": cacheControl,
     "Content-Type":
       driveResponse.headers.get("Content-Type") ?? "application/octet-stream",
-    Vary: "Cookie, Authorization, Range",
     "X-Content-Type-Options": "nosniff",
   })
+
+  if (variesBySession) {
+    responseHeaders.set("Vary", "Cookie, Authorization, Range")
+  }
 
   for (const name of FORWARDED_RESPONSE_HEADERS) {
     copyHeader(driveResponse.headers, responseHeaders, name)

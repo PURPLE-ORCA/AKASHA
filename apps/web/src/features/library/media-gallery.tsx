@@ -135,6 +135,9 @@ function MediaCard({
         onClick={
           isSelectionMode ? () => onSelectionChange(!isSelected) : onOpen
         }
+        onFocus={() => {
+          if (!isSelectionMode) preloadOriginalImage(item)
+        }}
         onKeyDown={(event) => {
           if (
             isSelectionMode ||
@@ -149,6 +152,9 @@ function MediaCard({
 
           event.preventDefault()
           onOpenFolder()
+        }}
+        onPointerEnter={() => {
+          if (!isSelectionMode) preloadOriginalImage(item)
         }}
         type="button"
       >
@@ -457,6 +463,14 @@ function ProgressiveImage({
       ) : null}
     </div>
   )
+}
+
+function preloadOriginalImage(item: LibraryItem) {
+  if (item.kind !== "image") return
+
+  const image = new Image()
+  image.decoding = "async"
+  image.src = `/api/media/${encodeURIComponent(item.driveFileId)}`
 }
 
 function MediaPlaceholder({ kind }: { kind: LibraryItem["kind"] }) {

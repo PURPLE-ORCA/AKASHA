@@ -13,11 +13,11 @@ const now = Date.UTC(2026, 7, 23, 12)
 
 describe("Drive thumbnail tokens", () => {
   it("creates a stable, verifiable URL within the same cache bucket", () => {
-    const first = createDriveThumbnailUrl("file id", thumbnailUrl, {
+    const first = createDriveThumbnailUrl("file id", {
       now,
       secret,
     })
-    const second = createDriveThumbnailUrl("file id", thumbnailUrl, {
+    const second = createDriveThumbnailUrl("file id", {
       now: now + 60_000,
       secret,
     })
@@ -30,11 +30,11 @@ describe("Drive thumbnail tokens", () => {
     expect(token).toBeTruthy()
     expect(
       verifyDriveThumbnailToken(token!, { now: now + 60_000, secret })
-    ).toMatchObject({ fileId: "file id", thumbnailUrl })
+    ).toMatchObject({ fileId: "file id" })
   })
 
   it("rejects tampered and expired tokens", () => {
-    const token = createDriveThumbnailToken("file-id", thumbnailUrl, {
+    const token = createDriveThumbnailToken("file-id", {
       now,
       secret,
     })
@@ -50,14 +50,6 @@ describe("Drive thumbnail tokens", () => {
     ).toThrow("Expired or invalid thumbnail token")
   })
 
-  it("rejects non-Google thumbnail hosts", () => {
-    expect(() =>
-      createDriveThumbnailToken("file-id", "https://example.com/image.jpg", {
-        now,
-        secret,
-      })
-    ).toThrow("Invalid thumbnail URL")
-  })
 })
 
 describe("Drive thumbnail fetch", () => {
