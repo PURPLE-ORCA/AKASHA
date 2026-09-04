@@ -2,11 +2,11 @@ import type { drive_v3 } from "googleapis"
 import { libraryFolderSchema, libraryItemSchema } from "@akasha/contracts"
 import type { LibraryFolder, LibraryItem, MediaKind } from "@akasha/contracts"
 
+import type { GoogleTokenCredentials } from "../auth/google-oauth.server"
 import {
   createDriveClient,
-  ensureStillroomRoot,
   FOLDER_MIME_TYPE,
-  listStillroomFiles,
+  listStillroomLibrary,
 } from "./drive.server"
 import { createDriveThumbnailUrl } from "./drive-thumbnail.server"
 
@@ -24,18 +24,18 @@ export type DriveLibraryUser = {
 }
 
 export async function loadDriveLibrary(
-  refreshToken: string
+  credentials: GoogleTokenCredentials
 ): Promise<DriveLibrarySnapshot> {
-  const root = await ensureStillroomRoot(refreshToken)
+  const drive = createDriveClient(credentials)
+  const [{ files, root }, user] = await Promise.all([
+    listStillroomLibrary(drive),
+    loadDriveUser(drive),
+  ])
 
   if (!root.id) {
     throw new Error("Akasha could not initialize the library root.")
   }
 
-  const [files, user] = await Promise.all([
-    listStillroomFiles(refreshToken),
-    loadDriveUser(refreshToken),
-  ])
   return buildDriveLibrarySnapshot(root.id, files, user)
 }
 
@@ -96,8 +96,7 @@ export function buildDriveLibrarySnapshot(
   return { folders, items, rootFolderId, user }
 }
 
-async function loadDriveUser(refreshToken: string): Promise<DriveLibraryUser> {
-  const drive = createDriveClient(refreshToken)
+async function loadDriveUser(drive: drive_v3.Drive): Promise<DriveLibraryUser> {
   const response = await drive.about.get({
     fields: "user(displayName,emailAddress,photoLink)",
   })

@@ -24,7 +24,6 @@ import {
   createSourceFingerprint,
   SOURCE_HASH_PROPERTY,
 } from "./capture-dedupe.server"
-import { buildFolderChildrenQuery } from "./drive-query"
 
 const FOLDER_MIME_TYPE = "application/vnd.google-apps.folder"
 const ROOT_PROPERTY_KEY = "stillroomRole"
@@ -39,7 +38,7 @@ const MAXIMUM_VIDEO_BYTES = 50 * 1024 * 1024
 
 export { FOLDER_MIME_TYPE }
 
-type DriveCredentialInput = GoogleTokenCredentials | string
+export type DriveCredentialInput = GoogleTokenCredentials | string
 
 export type CaptureSaveTimings = {
   dedupeMs: number
@@ -80,42 +79,18 @@ export function createDriveClient(credentials: DriveCredentialInput) {
   return google.drive({ version: "v3", auth })
 }
 
-export async function ensureStillroomRoot(refreshToken: string) {
-  const drive = createDriveClient(refreshToken)
-  const existingRoots = await drive.files.list({
-    fields: FILE_FIELDS,
-    q: `appProperties has { key='${ROOT_PROPERTY_KEY}' and value='${ROOT_PROPERTY_VALUE}' } and mimeType='${FOLDER_MIME_TYPE}' and trashed = false`,
-    spaces: "drive",
-  })
-  const existingRoot = existingRoots.data.files?.[0]
+export async function listStillroomLibrary(drive: drive_v3.Drive) {
+  const files = await listDriveFiles(drive, "trashed = false")
+  const existingRoot = files.find(
+    (file) =>
+      file.mimeType === FOLDER_MIME_TYPE &&
+      file.appProperties?.[ROOT_PROPERTY_KEY] === ROOT_PROPERTY_VALUE
+  )
 
-  if (existingRoot?.id) {
-    return existingRoot
-  }
+  if (existingRoot?.id) return { files, root: existingRoot }
 
-  const createdRoot = await drive.files.create({
-    fields: "id,name,mimeType,parents,appProperties,createdTime",
-    requestBody: {
-      appProperties: { [ROOT_PROPERTY_KEY]: ROOT_PROPERTY_VALUE },
-      mimeType: FOLDER_MIME_TYPE,
-      name: "Akasha",
-    },
-  })
-
-  return createdRoot.data
-}
-
-export async function listFolderChildren(
-  refreshToken: string,
-  folderId: string
-) {
-  const drive = createDriveClient(refreshToken)
-  return listDriveFiles(drive, buildFolderChildrenQuery(folderId))
-}
-
-export async function listStillroomFiles(refreshToken: string) {
-  const drive = createDriveClient(refreshToken)
-  return listDriveFiles(drive, "trashed = false")
+  const root = await createStillroomRoot(drive)
+  return { files: [...files, root], root }
 }
 
 export async function backfillCaptureDedupeMetadata(
@@ -190,8 +165,14 @@ export async function listStillroomFolders(credentials: DriveCredentialInput) {
     return { folders, root: existingRoot }
   }
 
-  const createdRoot = await drive.files.create({
-    fields: "id,name,parents,appProperties",
+  const createdRoot = await createStillroomRoot(drive)
+
+  return { folders: [...folders, createdRoot], root: createdRoot }
+}
+
+async function createStillroomRoot(drive: drive_v3.Drive) {
+  const response = await drive.files.create({
+    fields: "id,name,mimeType,parents,appProperties,createdTime",
     requestBody: {
       appProperties: { [ROOT_PROPERTY_KEY]: ROOT_PROPERTY_VALUE },
       mimeType: FOLDER_MIME_TYPE,
@@ -199,7 +180,7 @@ export async function listStillroomFolders(credentials: DriveCredentialInput) {
     },
   })
 
-  return { folders: [...folders, createdRoot.data], root: createdRoot.data }
+  return response.data
 }
 
 async function listDriveFiles(drive: drive_v3.Drive, query: string) {
@@ -224,11 +205,11 @@ async function listDriveFiles(drive: drive_v3.Drive, query: string) {
 }
 
 export async function createFolder(
-  refreshToken: string,
+  credentials: DriveCredentialInput,
   parentFolderId: string,
   name: string
 ) {
-  const drive = createDriveClient(refreshToken)
+  const drive = createDriveClient(credentials)
   const response = await drive.files.create({
     fields: "id,name,mimeType,parents,appProperties,createdTime",
     requestBody: {
@@ -243,11 +224,11 @@ export async function createFolder(
 }
 
 export async function moveFile(
-  refreshToken: string,
+  credentials: DriveCredentialInput,
   fileId: string,
   destinationFolderId: string
 ) {
-  const drive = createDriveClient(refreshToken)
+  const drive = createDriveClient(credentials)
   const currentFile = await drive.files.get({ fileId, fields: "parents" })
   const currentParents = currentFile.data.parents ?? []
   if (currentParents.includes(destinationFolderId)) return currentFile.data
@@ -263,8 +244,11 @@ export async function moveFile(
   return response.data
 }
 
-export async function trashFile(refreshToken: string, fileId: string) {
-  const drive = createDriveClient(refreshToken)
+export async function trashFile(
+  credentials: DriveCredentialInput,
+  fileId: string
+) {
+  const drive = createDriveClient(credentials)
   const response = await drive.files.update({
     fileId,
     fields: "id,trashed",

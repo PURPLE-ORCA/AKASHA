@@ -3,6 +3,7 @@ import type { LibraryFolder } from "@akasha/contracts"
 
 import {
   createDriveClient,
+  type DriveCredentialInput,
   listStillroomFolders,
   moveFile,
   trashFile,
@@ -16,12 +17,12 @@ type FolderActionContext = {
 }
 
 export async function renameDriveFolder(
-  refreshToken: string,
+  credentials: DriveCredentialInput,
   folderId: string,
   name: string
 ) {
-  await loadFolderActionContext(refreshToken, folderId)
-  const drive = createDriveClient(refreshToken)
+  await loadFolderActionContext(credentials, folderId)
+  const drive = createDriveClient(credentials)
   const response = await drive.files.update({
     fields: "id,name,mimeType,parents,appProperties,createdTime",
     fileId: folderId,
@@ -32,28 +33,28 @@ export async function renameDriveFolder(
 }
 
 export async function moveDriveFolder(
-  refreshToken: string,
+  credentials: DriveCredentialInput,
   folderId: string,
   destinationFolderId: string
 ) {
-  const context = await loadFolderActionContext(refreshToken, folderId)
+  const context = await loadFolderActionContext(credentials, folderId)
   assertFolderMoveDestination(context, destinationFolderId)
-  return moveFile(refreshToken, folderId, destinationFolderId)
+  return moveFile(credentials, folderId, destinationFolderId)
 }
 
 export async function trashDriveFolder(
-  refreshToken: string,
+  credentials: DriveCredentialInput,
   folderId: string
 ) {
-  await loadFolderActionContext(refreshToken, folderId)
-  return trashFile(refreshToken, folderId)
+  await loadFolderActionContext(credentials, folderId)
+  return trashFile(credentials, folderId)
 }
 
 async function loadFolderActionContext(
-  refreshToken: string,
+  credentials: DriveCredentialInput,
   folderId: string
 ): Promise<FolderActionContext> {
-  const { folders: driveFolders, root } = await listStillroomFolders(refreshToken)
+  const { folders: driveFolders, root } = await listStillroomFolders(credentials)
   if (!root.id) throw new Error("Akasha could not identify the library root.")
 
   const folders = buildReachableFolders(root.id, driveFolders)

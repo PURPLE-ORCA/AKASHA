@@ -2,7 +2,10 @@ import { createServerFn } from "@tanstack/react-start"
 import { setResponseHeaders } from "@tanstack/react-start/server"
 import { z } from "zod"
 
-import { useStillroomSession } from "@/server/auth/session.server"
+import {
+  getSessionGoogleCredentials,
+  useStillroomSession,
+} from "@/server/auth/session.server"
 import { isGoogleRefreshTokenRejected } from "@/server/auth/google-oauth.server"
 import { createFolder, moveFile, trashFile } from "@/server/drive/drive.server"
 import {
@@ -55,7 +58,13 @@ export const getLibrarySnapshot = createServerFn({ method: "GET" }).handler(
     }
 
     try {
-      const snapshot = await loadDriveLibrary(session.data.googleRefreshToken)
+      const credentials = await getSessionGoogleCredentials(session)
+      if (!credentials) {
+        await session.clear()
+        return { status: "disconnected" as const }
+      }
+
+      const snapshot = await loadDriveLibrary(credentials)
       return { snapshot, status: "connected" as const }
     } catch (error) {
       if (!isGoogleRefreshTokenRejected(error)) throw error
@@ -69,18 +78,18 @@ export const createLibraryFolder = createServerFn({ method: "POST" })
   .validator(createFolderInputSchema)
   .handler(async ({ data }) => {
     setPrivateNoStoreHeaders()
-    const refreshToken = await requireRefreshToken()
-    return createFolder(refreshToken, data.parentFolderId, data.name)
+    const credentials = await requireGoogleCredentials()
+    return createFolder(credentials, data.parentFolderId, data.name)
   })
 
 export const moveLibraryItems = createServerFn({ method: "POST" })
   .validator(moveItemsInputSchema)
   .handler(async ({ data }) => {
     setPrivateNoStoreHeaders()
-    const refreshToken = await requireRefreshToken()
+    const credentials = await requireGoogleCredentials()
     await Promise.all(
       data.fileIds.map((fileId) =>
-        moveFile(refreshToken, fileId, data.destinationFolderId)
+        moveFile(credentials, fileId, data.destinationFolderId)
       )
     )
 
@@ -91,9 +100,9 @@ export const removeLibraryItems = createServerFn({ method: "POST" })
   .validator(removeItemsInputSchema)
   .handler(async ({ data }) => {
     setPrivateNoStoreHeaders()
-    const refreshToken = await requireRefreshToken()
+    const credentials = await requireGoogleCredentials()
     await Promise.all(
-      data.fileIds.map((fileId) => trashFile(refreshToken, fileId))
+      data.fileIds.map((fileId) => trashFile(credentials, fileId))
     )
 
     return { removed: data.fileIds.length }
@@ -103,17 +112,17 @@ export const renameLibraryFolder = createServerFn({ method: "POST" })
   .validator(renameFolderInputSchema)
   .handler(async ({ data }) => {
     setPrivateNoStoreHeaders()
-    const refreshToken = await requireRefreshToken()
-    return renameDriveFolder(refreshToken, data.folderId, data.name)
+    const credentials = await requireGoogleCredentials()
+    return renameDriveFolder(credentials, data.folderId, data.name)
   })
 
 export const moveLibraryFolder = createServerFn({ method: "POST" })
   .validator(moveFolderInputSchema)
   .handler(async ({ data }) => {
     setPrivateNoStoreHeaders()
-    const refreshToken = await requireRefreshToken()
+    const credentials = await requireGoogleCredentials()
     return moveDriveFolder(
-      refreshToken,
+      credentials,
       data.folderId,
       data.destinationFolderId
     )
@@ -123,22 +132,23 @@ export const removeLibraryFolder = createServerFn({ method: "POST" })
   .validator(removeFolderInputSchema)
   .handler(async ({ data }) => {
     setPrivateNoStoreHeaders()
-    const refreshToken = await requireRefreshToken()
-    return trashDriveFolder(refreshToken, data.folderId)
+    const credentials = await requireGoogleCredentials()
+    return trashDriveFolder(credentials, data.folderId)
   })
 
-async function requireRefreshToken() {
+async function requireGoogleCredentials() {
   if (!process.env.SESSION_SECRET) {
     throw new Error("Connect your library before continuing.")
   }
 
   const session = await useStillroomSession()
 
-  if (!session.data.googleRefreshToken) {
+  const credentials = await getSessionGoogleCredentials(session)
+  if (!credentials) {
     throw new Error("Connect your library before continuing.")
   }
 
-  return session.data.googleRefreshToken
+  return credentials
 }
 
 function setPrivateNoStoreHeaders() {
