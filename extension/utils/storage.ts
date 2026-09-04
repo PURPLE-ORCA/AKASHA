@@ -18,7 +18,7 @@ export const captureOutboxStorage = storage.defineItem<CaptureOutboxJob[]>("loca
 export const folderOptionsCacheStorage = storage.defineItem<{
   cachedAt: number
   folders: FolderOption[]
-} | null>("local:folder-options-cache", { fallback: null })
+} | null>("local:folder-options-cache-v4", { fallback: null })
 
 export const duplicateBackfillStorage = storage.defineItem<{
   complete: boolean

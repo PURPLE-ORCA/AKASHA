@@ -6,7 +6,7 @@ import {
 } from "./extension-library.server"
 
 describe("buildExtensionFolderOptions", () => {
-  it("flattens nested folders beneath the Akasha root", () => {
+  it("preserves nested folder depth beneath the Akasha root", () => {
     expect(
       buildExtensionFolderOptions({
         folders: [
@@ -16,9 +16,9 @@ describe("buildExtensionFolderOptions", () => {
         rootFolderId: "root",
       })
     ).toEqual([
-      { id: "root", label: "Akasha" },
-      { id: "parent", label: "— Design" },
-      { id: "child", label: "— — Editorial" },
+      { depth: 0, id: "root", label: "Akasha" },
+      { depth: 1, id: "parent", label: "Design" },
+      { depth: 2, id: "child", label: "Editorial" },
     ])
   })
 })

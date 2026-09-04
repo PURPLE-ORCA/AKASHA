@@ -8,6 +8,7 @@ import {
 } from "@/utils/akasha-api"
 import { createCaptureDraft } from "@/utils/capture"
 import { createCaptureResultNotification } from "@/utils/capture-result"
+import { isFolderCacheFresh } from "@/utils/folder-cache"
 import type { ExtensionRequest, ExtensionResponse, OpenCapturePanelMessage } from "@/utils/messages"
 import {
   type CaptureOutboxJob,
@@ -386,20 +387,20 @@ async function getFolderOptions() {
 
   const cached = await folderOptionsCacheStorage.getValue()
 
-  try {
-    return await refreshFolderOptions()
-  } catch (error) {
-    const canUseCache = cached && (!(error instanceof AkashaApiError) || error.retryable)
-
-    if (canUseCache) return cached.folders
-    throw error
+  if (cached) {
+    if (!isFolderCacheFresh(cached.cachedAt)) {
+      queueMicrotask(() => void refreshFolderOptions().catch(() => undefined))
+    }
+    return cached.folders
   }
+
+  return refreshFolderOptions()
 }
 
 function refreshFolderOptions() {
   if (folderRefresh) return folderRefresh
 
-  folderRefresh = listFolderOptions()
+  folderRefresh = listFolderOptions(AbortSignal.timeout(8_000))
     .then(async (folders) => {
       await cacheFolderOptions(folders)
       return folders
