@@ -38,8 +38,6 @@ const MAXIMUM_VIDEO_BYTES = 50 * 1024 * 1024
 
 export { FOLDER_MIME_TYPE }
 
-export type DriveCredentialInput = GoogleTokenCredentials | string
-
 export type CaptureSaveTimings = {
   dedupeMs: number
   driveUploadMs: number
@@ -67,13 +65,12 @@ export class CaptureSourceError extends Error {
   }
 }
 
-export function createDriveClient(credentials: DriveCredentialInput) {
+export function createDriveClient(credentials: GoogleTokenCredentials) {
   const auth = createGoogleOAuthClient()
-  const normalizedCredentials = normalizeDriveCredentials(credentials)
   auth.setCredentials({
-    access_token: normalizedCredentials.accessToken,
-    expiry_date: normalizedCredentials.accessTokenExpiresAt,
-    refresh_token: normalizedCredentials.refreshToken,
+    access_token: credentials.accessToken,
+    expiry_date: credentials.accessTokenExpiresAt,
+    refresh_token: credentials.refreshToken,
   })
 
   return google.drive({ version: "v3", auth })
@@ -94,7 +91,7 @@ export async function listStillroomLibrary(drive: drive_v3.Drive) {
 }
 
 export async function backfillCaptureDedupeMetadata(
-  credentials: DriveCredentialInput,
+  credentials: GoogleTokenCredentials,
   pageToken?: string
 ) {
   const drive = createDriveClient(credentials)
@@ -137,7 +134,7 @@ export async function backfillCaptureDedupeMetadata(
   }
 }
 
-export async function listStillroomFolders(credentials: DriveCredentialInput) {
+export async function listStillroomFolders(credentials: GoogleTokenCredentials) {
   const drive = createDriveClient(credentials)
   const folders: drive_v3.Schema$File[] = []
   let pageToken: string | undefined
@@ -205,7 +202,7 @@ async function listDriveFiles(drive: drive_v3.Drive, query: string) {
 }
 
 export async function createFolder(
-  credentials: DriveCredentialInput,
+  credentials: GoogleTokenCredentials,
   parentFolderId: string,
   name: string
 ) {
@@ -224,7 +221,7 @@ export async function createFolder(
 }
 
 export async function moveFile(
-  credentials: DriveCredentialInput,
+  credentials: GoogleTokenCredentials,
   fileId: string,
   destinationFolderId: string
 ) {
@@ -245,7 +242,7 @@ export async function moveFile(
 }
 
 export async function trashFile(
-  credentials: DriveCredentialInput,
+  credentials: GoogleTokenCredentials,
   fileId: string
 ) {
   const drive = createDriveClient(credentials)
@@ -259,7 +256,7 @@ export async function trashFile(
 }
 
 export async function saveCapture(
-  credentials: DriveCredentialInput,
+  credentials: GoogleTokenCredentials,
   draft: CaptureDraft,
   folderId: string,
   options: { attempt?: number; captureId?: string } = {}
@@ -366,7 +363,7 @@ export async function saveCapture(
 }
 
 export async function saveUploadedVideoCapture(
-  credentials: DriveCredentialInput,
+  credentials: GoogleTokenCredentials,
   draft: CaptureDraft,
   folderId: string,
   upload: {
@@ -441,7 +438,7 @@ export async function saveUploadedVideoCapture(
 }
 
 export async function saveUploadedImage(
-  credentials: DriveCredentialInput,
+  credentials: GoogleTokenCredentials,
   folderId: string,
   upload: LibraryImageUpload
 ): Promise<CaptureSaveResult> {
@@ -978,14 +975,6 @@ async function runWithConcurrency<T>(
       }
     })
   )
-}
-
-function normalizeDriveCredentials(
-  credentials: DriveCredentialInput
-): GoogleTokenCredentials {
-  return typeof credentials === "string"
-    ? { refreshToken: credentials }
-    : credentials
 }
 
 export async function fetchSafeRemoteSource(

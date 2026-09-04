@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   get: vi.fn(),
   update: vi.fn(),
 }))
+const credentials = { refreshToken: "refresh-token" }
 
 vi.mock("googleapis", () => ({
   google: {
@@ -28,7 +29,7 @@ describe("Drive library actions", () => {
       data: { id: "asset", parents: ["target"] },
     })
 
-    const result = await moveFile("refresh-token", "asset", "target")
+    const result = await moveFile(credentials, "asset", "target")
 
     expect(result).toEqual({ id: "asset", parents: ["target"] })
     expect(mocks.update).not.toHaveBeenCalled()
@@ -40,7 +41,7 @@ describe("Drive library actions", () => {
       data: { id: "asset", parents: ["target"] },
     })
 
-    await moveFile("refresh-token", "asset", "target")
+    await moveFile(credentials, "asset", "target")
 
     expect(mocks.update).toHaveBeenCalledWith({
       addParents: "target",

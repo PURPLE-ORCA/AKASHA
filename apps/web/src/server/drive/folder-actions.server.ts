@@ -1,9 +1,9 @@
 import { getFolderDescendantIds } from "@akasha/contracts"
 import type { LibraryFolder } from "@akasha/contracts"
+import type { GoogleTokenCredentials } from "../auth/google-oauth.server"
 
 import {
   createDriveClient,
-  type DriveCredentialInput,
   listStillroomFolders,
   moveFile,
   trashFile,
@@ -17,7 +17,7 @@ type FolderActionContext = {
 }
 
 export async function renameDriveFolder(
-  credentials: DriveCredentialInput,
+  credentials: GoogleTokenCredentials,
   folderId: string,
   name: string
 ) {
@@ -33,7 +33,7 @@ export async function renameDriveFolder(
 }
 
 export async function moveDriveFolder(
-  credentials: DriveCredentialInput,
+  credentials: GoogleTokenCredentials,
   folderId: string,
   destinationFolderId: string
 ) {
@@ -43,7 +43,7 @@ export async function moveDriveFolder(
 }
 
 export async function trashDriveFolder(
-  credentials: DriveCredentialInput,
+  credentials: GoogleTokenCredentials,
   folderId: string
 ) {
   await loadFolderActionContext(credentials, folderId)
@@ -51,7 +51,7 @@ export async function trashDriveFolder(
 }
 
 async function loadFolderActionContext(
-  credentials: DriveCredentialInput,
+  credentials: GoogleTokenCredentials,
   folderId: string
 ): Promise<FolderActionContext> {
   const { folders: driveFolders, root } = await listStillroomFolders(credentials)

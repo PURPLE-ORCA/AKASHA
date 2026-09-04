@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   trashFile: vi.fn(),
   update: vi.fn(),
 }))
+const credentials = { refreshToken: "refresh-token" }
 
 vi.mock("./drive.server", () => ({
   createDriveClient: () => ({ files: { update: mocks.update } }),
@@ -43,9 +44,9 @@ describe("folder actions", () => {
     mocks.moveFile.mockResolvedValueOnce({ id: "parent", parents: ["target"] })
     mocks.trashFile.mockResolvedValueOnce({ id: "parent", trashed: true })
 
-    await renameDriveFolder("refresh-token", "parent", "Renamed")
-    await moveDriveFolder("refresh-token", "parent", "target")
-    await trashDriveFolder("refresh-token", "parent")
+    await renameDriveFolder(credentials, "parent", "Renamed")
+    await moveDriveFolder(credentials, "parent", "target")
+    await trashDriveFolder(credentials, "parent")
 
     expect(mocks.update).toHaveBeenCalledWith({
       fields: "id,name,mimeType,parents,appProperties,createdTime",
@@ -53,13 +54,13 @@ describe("folder actions", () => {
       requestBody: { name: "Renamed" },
     })
     expect(mocks.moveFile).toHaveBeenCalledWith(
-      "refresh-token",
+      credentials,
       "parent",
       "target"
     )
-    expect(mocks.trashFile).toHaveBeenCalledWith("refresh-token", "parent")
+    expect(mocks.trashFile).toHaveBeenCalledWith(credentials, "parent")
     await expect(
-      moveDriveFolder("refresh-token", "parent", "child")
+      moveDriveFolder(credentials, "parent", "child")
     ).rejects.toThrow("A folder cannot be moved inside itself.")
   })
 })
