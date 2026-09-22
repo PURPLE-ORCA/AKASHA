@@ -249,6 +249,42 @@ describe("MediaGallery image loading", () => {
     expect(secondOriginal.className).not.toContain("opacity-0")
   })
 
+  it("zooms toward the pointer while Shift is held", () => {
+    renderGallery([createItem("image")])
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Open image reference" })
+    )
+
+    const original = within(screen.getByRole("dialog")).getByRole("img", {
+      name: "image reference",
+    })
+    const imageFrame = original.parentElement as HTMLDivElement
+    vi.spyOn(imageFrame, "getBoundingClientRect").mockReturnValue({
+      bottom: 100,
+      height: 100,
+      left: 0,
+      right: 200,
+      toJSON: () => ({}),
+      top: 0,
+      width: 200,
+      x: 0,
+      y: 0,
+    })
+
+    fireEvent.pointerEnter(imageFrame, { clientX: 150, clientY: 25 })
+    fireEvent.keyDown(window, { key: "Shift", shiftKey: true })
+
+    expect(imageFrame.style.transform).toBe("scale(2)")
+    expect(imageFrame.style.transformOrigin).toBe("var(--zoom-origin, center)")
+    expect(imageFrame.style.getPropertyValue("--zoom-origin")).toBe("75% 25%")
+
+    fireEvent.keyUp(window, { key: "Shift" })
+
+    expect(imageFrame.style.transform).toBe("scale(1)")
+    expect(imageFrame.style.transformOrigin).toBe("center")
+  })
+
   it("renders every item before lazy image loading begins", () => {
     const items = Array.from({ length: 50 }, (_, index) =>
       createItem("image", { id: `image-${index}`, title: `Image ${index}` })
