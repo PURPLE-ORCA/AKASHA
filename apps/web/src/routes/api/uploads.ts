@@ -4,9 +4,10 @@ import {
 } from "@akasha/contracts"
 import { createFileRoute } from "@tanstack/react-router"
 
-import { getGoogleAccessToken } from "@/server/auth/google-oauth.server"
-import type { GoogleTokenCredentials } from "@/server/auth/google-oauth.server"
-import { useStillroomSession } from "@/server/auth/session.server"
+import {
+  getSessionGoogleCredentials,
+  useStillroomSession,
+} from "@/server/auth/session.server"
 import {
   CaptureSourceError,
   saveUploadedImage,
@@ -60,42 +61,21 @@ export const Route = createFileRoute("/api/uploads")({
         }
 
         const session = await useStillroomSession()
-        const refreshToken = session.data.googleRefreshToken
-        if (!refreshToken) {
+        if (!session.data.googleRefreshToken) {
           return Response.json(
             { error: "Connect your library before uploading." },
             { headers, status: 401 }
           )
         }
 
-        const accessToken = await getGoogleAccessToken({
-          accessToken: session.data.googleAccessToken,
-          accessTokenExpiresAt: session.data.googleAccessTokenExpiresAt,
-          refreshToken,
-        })
-        if (!accessToken) {
+        const credentials = await getSessionGoogleCredentials(session)
+        if (!credentials) {
           return Response.json(
             { error: "Your library connection expired." },
             { headers, status: 401 }
           )
         }
 
-        if (
-          accessToken.accessToken !== session.data.googleAccessToken ||
-          accessToken.accessTokenExpiresAt !==
-            session.data.googleAccessTokenExpiresAt
-        ) {
-          await session.update({
-            ...session.data,
-            googleAccessToken: accessToken.accessToken,
-            googleAccessTokenExpiresAt: accessToken.accessTokenExpiresAt,
-          })
-        }
-
-        const credentials: GoogleTokenCredentials = {
-          ...accessToken,
-          refreshToken,
-        }
         const form = await request.formData().catch(() => null)
         const file = form?.get("file")
         const folderId = form?.get("folderId")

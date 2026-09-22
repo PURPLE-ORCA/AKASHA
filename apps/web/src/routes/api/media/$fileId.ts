@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import { getGoogleAccessToken } from "@/server/auth/google-oauth.server"
-import { useStillroomSession } from "@/server/auth/session.server"
+import {
+  getSessionGoogleCredentials,
+  useStillroomSession,
+} from "@/server/auth/session.server"
 import {
   createDriveMediaRequestHeaders,
   createMediaProxyResponse,
@@ -24,32 +26,14 @@ export const Route = createFileRoute("/api/media/$fileId")({
         }
 
         const session = await useStillroomSession()
-        const refreshToken = session.data.googleRefreshToken
-
-        if (!refreshToken) {
+        if (!session.data.googleRefreshToken) {
           return new Response("Library access is required.", { status: 401 })
         }
 
-        const credentials = await getGoogleAccessToken({
-          accessToken: session.data.googleAccessToken,
-          accessTokenExpiresAt: session.data.googleAccessTokenExpiresAt,
-          refreshToken,
-        })
+        const credentials = await getSessionGoogleCredentials(session)
 
         if (!credentials) {
           return new Response("Library access expired.", { status: 401 })
-        }
-
-        if (
-          credentials.accessToken !== session.data.googleAccessToken ||
-          credentials.accessTokenExpiresAt !==
-            session.data.googleAccessTokenExpiresAt
-        ) {
-          await session.update({
-            ...session.data,
-            googleAccessToken: credentials.accessToken,
-            googleAccessTokenExpiresAt: credentials.accessTokenExpiresAt,
-          })
         }
 
         const previewToken = new URL(request.url).searchParams.get("preview")
@@ -75,11 +59,7 @@ export const Route = createFileRoute("/api/media/$fileId")({
           )
 
           if ([401, 403, 404].includes(thumbnailResponse.status)) {
-            const drive = createDriveClient({
-              accessToken: credentials.accessToken,
-              accessTokenExpiresAt: credentials.accessTokenExpiresAt,
-              refreshToken,
-            })
+            const drive = createDriveClient(credentials)
             const refreshedFile = await drive.files.get({
               fields: "thumbnailLink",
               fileId: params.fileId,

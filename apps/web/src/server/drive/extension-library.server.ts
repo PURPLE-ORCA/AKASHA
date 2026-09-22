@@ -5,6 +5,7 @@ import type { GoogleTokenCredentials } from "../auth/google-oauth.server"
 import { listStillroomFolders } from "./drive.server"
 
 export type ExtensionFolderOption = {
+  depth: number
   id: string
   label: string
 }
@@ -37,7 +38,7 @@ export function buildExtensionFolderOptions(snapshot: {
   }
 
   const options: ExtensionFolderOption[] = [
-    { id: snapshot.rootFolderId, label: "Akasha" },
+    { depth: 0, id: snapshot.rootFolderId, label: "Akasha" },
   ]
   appendFolderOptions(null, 1, childrenByParent, options)
   return options
@@ -55,8 +56,9 @@ function appendFolderOptions(
 
   for (const child of children) {
     options.push({
+      depth,
       id: child.id,
-      label: `${"— ".repeat(depth)}${child.name}`,
+      label: child.name,
     })
     appendFolderOptions(child.id, depth + 1, childrenByParent, options)
   }

@@ -50,14 +50,6 @@ describe("Drive thumbnail tokens", () => {
     ).toThrow("Expired or invalid thumbnail token")
   })
 
-  it("rejects non-Google thumbnail hosts", () => {
-    expect(() =>
-      createDriveThumbnailToken("file-id", "https://example.com/image.jpg", {
-        now,
-        secret,
-      })
-    ).toThrow("Invalid thumbnail URL")
-  })
 })
 
 describe("Drive thumbnail fetch", () => {
@@ -106,5 +98,14 @@ describe("Drive thumbnail fetch", () => {
       fetchDriveThumbnail(thumbnailUrl, "access-token", new Headers(), fetcher)
     ).rejects.toThrow("Invalid thumbnail URL")
     expect(fetcher).toHaveBeenCalledTimes(1)
+  })
+
+  it("rejects non-Google thumbnail hosts", () => {
+    expect(() =>
+      createDriveThumbnailToken("file-id", "https://example.com/image.jpg", {
+        now,
+        secret,
+      })
+    ).toThrow("Invalid thumbnail URL")
   })
 })

@@ -1,6 +1,13 @@
 import type { CaptureDraft } from "@akasha/contracts"
-import { ArrowClockwiseIcon, FolderIcon, ImageIcon, XIcon } from "@phosphor-icons/react"
-import { useCallback, useEffect, useState } from "react"
+import {
+  ArrowClockwiseIcon,
+  CaretDownIcon,
+  CheckIcon,
+  FolderIcon,
+  ImageIcon,
+  XIcon,
+} from "@phosphor-icons/react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import type { FolderOption } from "@/utils/akasha-api"
 import { connectLibrary, getFolderOptions, saveLibraryCapture } from "@/utils/messages"
 import { captureDraftStorage, selectedFolderStorage } from "@/utils/storage"
@@ -15,6 +22,7 @@ export default function App({ onClose }: { onClose: () => void }) {
   const [isLoading, setIsLoading] = useState(true)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle")
+  const folderPickerRef = useRef<HTMLDetailsElement>(null)
 
   const applyFolders = useCallback(
     (availableFolders: FolderOption[], storedFolderId: string | null) => {
@@ -37,7 +45,7 @@ export default function App({ onClose }: { onClose: () => void }) {
       setDraft(storedDraft?.kind === "image" ? storedDraft : null)
 
       try {
-        const availableFolders = await withTimeout(getFolderOptions(), 8_000)
+        const availableFolders = await getFolderOptions()
         applyFolders(availableFolders, storedFolderId)
         setIsConnected(true)
       } catch {
@@ -57,7 +65,14 @@ export default function App({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose()
+      if (event.key !== "Escape") return
+      if (folderPickerRef.current?.open) {
+        event.preventDefault()
+        folderPickerRef.current.open = false
+        folderPickerRef.current.querySelector("summary")?.focus()
+        return
+      }
+      onClose()
     }
 
     window.addEventListener("keydown", onKeyDown)
@@ -96,8 +111,11 @@ export default function App({ onClose }: { onClose: () => void }) {
 
   async function handleFolderChange(folderId: string) {
     setSelectedFolderId(folderId)
+    folderPickerRef.current?.removeAttribute("open")
     await selectedFolderStorage.setValue(folderId)
   }
+
+  const selectedFolder = folders.find((folder) => folder.id === selectedFolderId)
 
   return (
     <div className="akasha-backdrop">
@@ -137,23 +155,30 @@ export default function App({ onClose }: { onClose: () => void }) {
           ) : draft ? (
             <>
               <CapturePreview draft={draft} />
-              <label className="folder-field" htmlFor="akasha-folder">
+              <div className="folder-field">
                 <span>Folder</span>
-                <div className="select-wrap">
-                  <FolderIcon aria-hidden="true" />
-                  <select
-                    id="akasha-folder"
-                    onChange={(event) => void handleFolderChange(event.target.value)}
-                    value={selectedFolderId}
-                  >
+                <details className="folder-picker" ref={folderPickerRef}>
+                  <summary aria-label={`Folder, ${selectedFolder?.label ?? "Akasha"}`}>
+                    <FolderIcon aria-hidden="true" />
+                    <span>{selectedFolder?.label ?? "Akasha"}</span>
+                    <CaretDownIcon aria-hidden="true" />
+                  </summary>
+                  <div className="folder-options">
                     {folders.map((folder) => (
-                      <option key={folder.id} value={folder.id}>
-                        {folder.label}
-                      </option>
+                      <button
+                        aria-pressed={folder.id === selectedFolderId}
+                        key={folder.id}
+                        onClick={() => void handleFolderChange(folder.id)}
+                        style={{ paddingInlineStart: `${12 + folder.depth * 18}px` }}
+                        type="button"
+                      >
+                        <span>{folder.label}</span>
+                        {folder.id === selectedFolderId ? <CheckIcon aria-hidden="true" /> : null}
+                      </button>
                     ))}
-                  </select>
-                </div>
-              </label>
+                  </div>
+                </details>
+              </div>
               <button
                 className="primary-button"
                 disabled={!selectedFolderId || saveStatus === "saving"}
@@ -182,26 +207,6 @@ export default function App({ onClose }: { onClose: () => void }) {
       </main>
     </div>
   )
-}
-
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number) {
-  return new Promise<T>((resolve, reject) => {
-    const timeout = window.setTimeout(
-      () => reject(new Error("Akasha could not reach your library.")),
-      timeoutMs
-    )
-
-    promise.then(
-      (value) => {
-        window.clearTimeout(timeout)
-        resolve(value)
-      },
-      (error: unknown) => {
-        window.clearTimeout(timeout)
-        reject(error)
-      }
-    )
-  })
 }
 
 function CapturePreview({ draft }: { draft: CaptureDraft }) {

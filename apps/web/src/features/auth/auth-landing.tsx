@@ -1,71 +1,115 @@
-import { GoogleLogoIcon } from "@phosphor-icons/react"
-import { Button, Typography } from "@heroui/react"
+import { useEffect } from "react"
+import { ArrowRightIcon, GithubLogoIcon } from "@phosphor-icons/react"
+import { Button, Link, Typography } from "@heroui/react"
+
 import { AkashaBrand } from "@/components/stillroom/brand"
+import { useTheme } from "@/features/theme/use-theme"
 
 type AuthLandingProps = {
   connectionFailed?: boolean
 }
 
 export function AuthLanding({ connectionFailed = false }: AuthLandingProps) {
-  return (
-    <main
-      className="flex min-h-dvh flex-col items-center overflow-x-clip bg-background px-4 pt-5 text-foreground sm:px-6 sm:pt-8 md:px-10 md:pt-10"
-      id="main-content"
-    >
-      <section className="mb-10 flex w-full max-w-208 flex-col items-center gap-5 text-center sm:mb-14 md:mb-18">
-        <AkashaBrand />
-        <Typography type="h1">Keep the ideas worth returning to.</Typography>
-        <Typography color="muted">
-          Collect images and visual references in one calm, private space.
-        </Typography>
-        <form action="/api/auth/google" className="mt-2" method="get">
-          <Button size="lg" type="submit">
-            <GoogleLogoIcon aria-hidden="true" weight="bold" />
-            Continue with Google
-          </Button>
-        </form>
-        {connectionFailed ? (
-          <div className="mt-2">
-            <Typography
-              align="center"
-              color="muted"
-              role="alert"
-              type="body-sm"
-            >
-              Akasha couldn’t connect your library. Try again.
-            </Typography>
-          </div>
-        ) : null}
-      </section>
+  const { toggleTheme } = useTheme()
 
-      <section
-        aria-label="Product preview"
-        className="relative mx-auto w-full max-w-360"
-      >
-        <div className="relative w-full overflow-hidden rounded-t-[clamp(1.5rem,3.5vw,2.75rem)] border border-b-0 border-border bg-[color-mix(in_oklch,var(--accent)_6%,var(--surface))] shadow-[-12px_40px_-15px_color-mix(in_oklch,var(--foreground)_6%,transparent)] dark:border-[color-mix(in_oklch,var(--border)_60%,transparent)] dark:bg-[color-mix(in_oklch,var(--accent)_12%,var(--background))]">
-          <img
-            alt="Engraved illustration of the grand reading room"
-            className="pointer-events-none block aspect-1562/1007 h-auto w-full object-cover object-top select-none"
-            decoding="async"
-            fetchPriority="high"
-            src="/landing/grand-reading-room.webp"
-          />
-          <div className="absolute top-[8%] overflow-hidden rounded-md border border-[color-mix(in_oklch,var(--foreground)_12%,transparent)] shadow-2xl transition-transform duration-200 sm:top-[45%] sm:left-[8%] sm:w-[84%] md:top-[52%] md:left-[19%] md:w-[62%] md:rounded-[clamp(0.75rem,1.5vw,1.25rem)] dark:border-[color-mix(in_oklch,white_14%,transparent)]">
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.repeat ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.altKey
+      ) {
+        return
+      }
+
+      const target = event.target
+      if (
+        target instanceof HTMLElement &&
+        (target.matches("input, textarea, select") ||
+          target.isContentEditable ||
+          Boolean(target.closest('[contenteditable="true"]')))
+      ) {
+        return
+      }
+
+      if (event.key.toLowerCase() === "d") {
+        event.preventDefault()
+        toggleTheme()
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [toggleTheme])
+  return (
+    <div className="flex min-h-dvh flex-col items-center bg-background px-4 py-6 text-foreground sm:px-8 md:px-12">
+      <header className="fixed top-4 z-50 flex w-full max-w-2xl items-center justify-between rounded-full bg-[color-mix(in_oklch,var(--foreground)_92%,var(--surface))] px-1.5 py-1.5 text-white  border border-[color-mix(in_oklch,var(--foreground)_15%,transparent)] dark:text-black">
+        <AkashaBrand className="text-muted-foreground px-2" showIcon={false} />
+        <Link
+          className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-black transition-colors hover:bg-neutral-100 dark:bg-black dark:text-white dark:hover:bg-neutral-900"
+          href="https://github.com/PURPLE-ORCA/AKASHA"
+          rel="noopener noreferrer"
+          target="_blank"
+        >
+          <GithubLogoIcon aria-hidden="true" weight="bold" />
+          GitHub
+        </Link>
+      </header>
+
+      <main className="flex w-full max-w-7xl flex-col gap-12 pt-20" id="main-content">
+        <section aria-label="Product preview" className="w-full">
+          <div className="relative w-full overflow-hidden rounded-2xl border border-border bg-[color-mix(in_oklch,var(--accent)_6%,var(--surface))] dark:border-[color-mix(in_oklch,var(--border)_60%,transparent)] dark:bg-[color-mix(in_oklch,var(--accent)_12%,var(--background))]">
             <img
-              alt="Akasha visual library workspace in light mode"
-              className="block h-auto w-full select-none dark:hidden"
+              alt="Engraved illustration of the grand reading room"
+              className="pointer-events-none block aspect-16/7 max-h-[465px] w-full object-cover object-center select-none"
               decoding="async"
-              src="/landing/app-screenshot-light.webp"
-            />
-            <img
-              alt="Akasha visual library workspace in dark mode"
-              className="hidden h-auto w-full select-none dark:block"
-              decoding="async"
-              src="/landing/app-screenshot-dark.webp"
+              fetchPriority="high"
+              src="/landing/grand-reading-room.webp"
             />
           </div>
-        </div>
-      </section>
-    </main>
+        </section>
+
+        <section className="flex w-full flex-col justify-between gap-8 md:flex-row md:items-end">
+          <div className="max-w-xl">
+            <Typography className="max-w-3xl text-3xl sm:text-4xl md:text-5xl" type="h1">
+              Keep the ideas worth returning to.
+            </Typography>
+            <Typography className="mt-3 text-lg sm:text-lg" color="muted" type="body">
+              Collect images and visual references in one calm, private space.
+            </Typography>
+            {connectionFailed ? (
+              <div className="mt-3">
+                <Typography color="muted" role="alert" type="body-sm">
+                  Akasha couldn’t connect your library. Try again.
+                </Typography>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-4">
+            <form action="/api/auth/google" method="get">
+              <Button size="lg" type="submit" variant="primary">
+                Get started
+                <ArrowRightIcon aria-hidden="true" weight="bold" />
+              </Button>
+            </form>
+            <Link
+              className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface px-5 py-3 text-base font-semibold text-foreground transition-colors hover:bg-default"
+              href="https://github.com/PURPLE-ORCA/AKASHA"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              <GithubLogoIcon aria-hidden="true" weight="bold" />
+              GitHub
+            </Link>
+          </div>
+        </section>
+      </main>
+    </div>
   )
 }
+
+
+

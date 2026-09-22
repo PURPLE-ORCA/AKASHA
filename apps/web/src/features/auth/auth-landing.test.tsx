@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen } from "@testing-library/react"
+import { act, cleanup, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it } from "vitest"
 
 import { AuthLanding } from "./auth-landing"
@@ -18,9 +18,10 @@ describe("AuthLanding", () => {
       })
     ).toBeTruthy()
     expect(
-      screen.getByRole("button", { name: "Continue with Google" })
+      screen.getByRole("button", { name: "Get started" })
     ).toBeTruthy()
-    expect(screen.getByText("Akasha")).toBeTruthy()
+    expect(screen.getAllByText("GitHub").length).toBeGreaterThan(0)
+    expect(screen.getByText("AKASHA")).toBeTruthy()
     expect(screen.queryByRole("alert")).toBeNull()
   })
 
@@ -29,4 +30,17 @@ describe("AuthLanding", () => {
 
     expect(screen.getByRole("alert").textContent).toContain("couldn’t connect")
   })
+
+  it("toggles theme on 'd' key shortcut", () => {
+    render(<AuthLanding />)
+    const initialIsDark = document.documentElement.classList.contains("dark")
+
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "d" }))
+    })
+
+    expect(document.documentElement.classList.contains("dark")).toBe(!initialIsDark)
+  })
 })
+
+

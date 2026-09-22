@@ -4,6 +4,7 @@ const AUTH_STORAGE_KEY = "akashaDeviceCredential"
 const LEGACY_AUTH_STORAGE_KEY = "stillroomGoogleAuth"
 
 export type FolderOption = {
+  depth: number
   id: string
   label: string
 }
@@ -32,10 +33,27 @@ export async function connectAkasha() {
   return listFolderOptions()
 }
 
-export async function listFolderOptions() {
-  const response = await authenticatedRequest("/api/extension/folders")
-  const body = (await response.json()) as { folders: FolderOption[] }
-  return body.folders
+export async function listFolderOptions(signal?: AbortSignal) {
+  const response = await authenticatedRequest("/api/extension/folders", {
+    signal,
+  })
+  const body = (await response.json()) as {
+    folders: Array<Omit<FolderOption, "depth"> & { depth?: number }>
+  }
+  return normalizeFolderOptions(body.folders)
+}
+
+export function normalizeFolderOptions(
+  folders: Array<Omit<FolderOption, "depth"> & { depth?: number }>
+) {
+  return folders.map((folder) => {
+    const legacyIndent = folder.label.match(/^(?:— )+/)?.[0] ?? ""
+    return {
+      depth: folder.depth ?? legacyIndent.length / 2,
+      id: folder.id,
+      label: folder.label.slice(legacyIndent.length),
+    }
+  })
 }
 
 export async function saveCapture(

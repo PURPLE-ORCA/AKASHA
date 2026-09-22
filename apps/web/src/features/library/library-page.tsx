@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { FolderSimplePlusIcon } from "@phosphor-icons/react"
 import { Label, Typography } from "@heroui/react"
 import { ContextMenu } from "@heroui-pro/react"
-import { getFolderPath } from "@akasha/contracts"
+import { getFolderDescendantIds, getFolderPath } from "@akasha/contracts"
 import type { LibraryFolder } from "@akasha/contracts"
 
 import type { DriveLibrarySnapshot } from "@/server/drive/library.server"
@@ -76,8 +76,9 @@ export function LibraryPage({
   const [removeItemIds, setRemoveItemIds] = useState<string[]>([])
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set())
   const [theme, setTheme] = useState<ThemePreference>("system")
+  const [snapshot, setSnapshot] = useState(initialSnapshot)
   const uploaderRef = useRef<LibraryUploaderHandle>(null)
-  const { folders, items, rootFolderId } = initialSnapshot
+  const { folders, items, rootFolderId } = snapshot
   const selectedFolderId = getSelectedFolderId(
     folders,
     rootFolderId,
@@ -131,6 +132,10 @@ export function LibraryPage({
   )
 
   useEffect(() => {
+    setSnapshot(initialSnapshot)
+  }, [initialSnapshot])
+
+  useEffect(() => {
     const savedTheme = window.localStorage.getItem("stillroom-theme")
 
     if (isThemePreference(savedTheme)) setTheme(savedTheme)
@@ -172,10 +177,24 @@ export function LibraryPage({
   })
 
   async function createFolder(name: string) {
-    await createLibraryFolder({
+    const folder = await createLibraryFolder({
       data: { name, parentFolderId: selectedFolderId },
     })
-    await onRefresh()
+    const folderId = folder.id
+    if (!folderId) return onRefresh()
+
+    setSnapshot((current) => ({
+      ...current,
+      folders: [
+        ...current.folders,
+        {
+          id: folderId,
+          name: name.trim(),
+          parentId:
+            selectedFolderId === rootFolderId ? null : selectedFolderId,
+        },
+      ],
+    }))
   }
 
   async function renameFolder(name: string) {
@@ -183,7 +202,14 @@ export function LibraryPage({
     await renameLibraryFolder({
       data: { folderId: folderToRename.id, name },
     })
-    await onRefresh()
+    setSnapshot((current) => ({
+      ...current,
+      folders: current.folders.map((folder) =>
+        folder.id === folderToRename.id
+          ? { ...folder, name: name.trim() }
+          : folder
+      ),
+    }))
   }
 
   async function moveFolder(destinationFolderId: string) {
@@ -191,13 +217,42 @@ export function LibraryPage({
     await moveLibraryFolder({
       data: { destinationFolderId, folderId: folderToMove.id },
     })
-    await onRefresh()
+    setSnapshot((current) => ({
+      ...current,
+      folders: current.folders.map((folder) =>
+        folder.id === folderToMove.id
+          ? {
+              ...folder,
+              parentId:
+                destinationFolderId === rootFolderId
+                  ? null
+                  : destinationFolderId,
+            }
+          : folder
+      ),
+    }))
   }
 
   async function removeFolder() {
     if (!folderToRemove) return
     await removeLibraryFolder({ data: { folderId: folderToRemove.id } })
-    await onRefresh()
+    setSnapshot((current) => {
+      const removedFolderIds = getFolderDescendantIds(
+        current.folders,
+        folderToRemove.id
+      )
+      removedFolderIds.add(folderToRemove.id)
+
+      return {
+        ...current,
+        folders: current.folders.filter(
+          (folder) => !removedFolderIds.has(folder.id)
+        ),
+        items: current.items.filter(
+          (item) => !removedFolderIds.has(item.folderId)
+        ),
+      }
+    })
   }
 
   function changeSelectionMode(nextSelectionMode: boolean) {
@@ -224,14 +279,26 @@ export function LibraryPage({
     await moveLibraryItems({
       data: { destinationFolderId, fileIds: moveItemIds },
     })
-    await onRefresh()
+    const movedItemIds = new Set(moveItemIds)
+    setSnapshot((current) => ({
+      ...current,
+      items: current.items.map((item) =>
+        movedItemIds.has(item.id)
+          ? { ...item, folderId: destinationFolderId }
+          : item
+      ),
+    }))
     exitSelectionMode()
   }
 
   async function removeItems() {
     if (removeItemIds.length === 0) return
     await removeLibraryItems({ data: { fileIds: removeItemIds } })
-    await onRefresh()
+    const removedItemIds = new Set(removeItemIds)
+    setSnapshot((current) => ({
+      ...current,
+      items: current.items.filter((item) => !removedItemIds.has(item.id)),
+    }))
     exitSelectionMode()
   }
 
@@ -291,7 +358,7 @@ export function LibraryPage({
         onViewChange={setActiveTab}
         sortOrder={sortOrder}
         theme={theme}
-        user={initialSnapshot.user}
+        user={snapshot.user}
       />
       <LibraryDropTarget
         folderName={selectedFolderName}

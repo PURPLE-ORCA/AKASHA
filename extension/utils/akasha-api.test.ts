@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   AkashaApiError,
   createAkashaAuthorizationUrl,
+  normalizeFolderOptions,
   parseAkashaAuthorizationResponse,
 } from "./akasha-api"
 
@@ -34,6 +35,20 @@ describe("Akasha extension authorization", () => {
         "https://extension-id.chromiumapp.org/oauth2#error=authorization_failed"
       )
     ).toThrow("not completed")
+  })
+})
+
+describe("folder options", () => {
+  it("accepts both current depth values and legacy indented labels", () => {
+    expect(
+      normalizeFolderOptions([
+        { id: "current", label: "Current", depth: 1 },
+        { id: "legacy", label: "— — Legacy" },
+      ])
+    ).toEqual([
+      { id: "current", label: "Current", depth: 1 },
+      { id: "legacy", label: "Legacy", depth: 2 },
+    ])
   })
 })
 
