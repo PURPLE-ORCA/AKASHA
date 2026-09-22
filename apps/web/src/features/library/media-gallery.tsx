@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -427,12 +427,73 @@ function ProgressiveImage({
 }) {
   const [hasOriginalError, setHasOriginalError] = useState(false)
   const [hasPreviewError, setHasPreviewError] = useState(false)
+  const [isModifierHeld, setIsModifierHeld] = useState(false)
+  const [isPointerInside, setIsPointerInside] = useState(false)
+  const zoomFrame = useRef<HTMLDivElement | null>(null)
+  const zoomBounds = useRef<DOMRect | null>(null)
   const originalUrl = `/api/media/${encodeURIComponent(item.driveFileId)}`
+  const isInspecting = isModifierHeld && isPointerInside
+
+  useEffect(() => {
+    function onModifierChange(event: KeyboardEvent) {
+      if (event.key === "Alt" || event.key === "Shift") {
+        const isHeld =
+          event.type === "keydown" || event.altKey || event.shiftKey
+        setIsModifierHeld(isHeld)
+        if (isHeld) {
+          setIsPointerInside(
+            (current) =>
+              current || Boolean(zoomFrame.current?.matches(":hover"))
+          )
+        }
+      }
+    }
+
+    function onBlur() {
+      setIsModifierHeld(false)
+    }
+
+    window.addEventListener("keydown", onModifierChange)
+    window.addEventListener("keyup", onModifierChange)
+    window.addEventListener("blur", onBlur)
+    return () => {
+      window.removeEventListener("keydown", onModifierChange)
+      window.removeEventListener("keyup", onModifierChange)
+      window.removeEventListener("blur", onBlur)
+    }
+  }, [])
 
   return (
     <div
-      className="grid origin-center place-items-center transition-transform motion-reduce:transition-none"
-      style={{ transform: `scale(${scale})` }}
+      className={`grid place-items-center transition-transform motion-reduce:transition-none ${isInspecting ? "cursor-zoom-in" : ""}`}
+      ref={zoomFrame}
+      onPointerEnter={(event) => {
+        zoomBounds.current = event.currentTarget.getBoundingClientRect()
+        setIsPointerInside(true)
+        setIsModifierHeld(event.altKey || event.shiftKey)
+        updateZoomOrigin(
+          event.currentTarget,
+          zoomBounds.current,
+          event.clientX,
+          event.clientY
+        )
+      }}
+      onPointerLeave={() => setIsPointerInside(false)}
+      onPointerMove={(event) => {
+        setIsModifierHeld(event.altKey || event.shiftKey)
+        if (zoomBounds.current) {
+          updateZoomOrigin(
+            event.currentTarget,
+            zoomBounds.current,
+            event.clientX,
+            event.clientY
+          )
+        }
+      }}
+      style={{
+        transform: `scale(${isInspecting ? Math.max(2, scale) : scale})`,
+        transformOrigin: isInspecting ? "var(--zoom-origin, center)" : "center",
+      }}
     >
       {item.thumbnailUrl && !hasPreviewError ? (
         <img
@@ -463,6 +524,25 @@ function ProgressiveImage({
       ) : null}
     </div>
   )
+}
+
+function updateZoomOrigin(
+  element: HTMLDivElement,
+  bounds: DOMRect,
+  clientX: number,
+  clientY: number
+) {
+  if (bounds.width === 0 || bounds.height === 0) return
+
+  const x = Math.min(
+    100,
+    Math.max(0, ((clientX - bounds.left) / bounds.width) * 100)
+  )
+  const y = Math.min(
+    100,
+    Math.max(0, ((clientY - bounds.top) / bounds.height) * 100)
+  )
+  element.style.setProperty("--zoom-origin", `${x}% ${y}%`)
 }
 
 function preloadOriginalImage(item: LibraryItem) {

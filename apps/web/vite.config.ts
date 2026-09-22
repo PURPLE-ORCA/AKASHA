@@ -21,6 +21,19 @@ const config = defineConfig(({ mode }) => ({
     tsconfigPaths: true,
   },
   plugins: [
+    {
+      name: "akasha:serve-media-routes",
+      enforce: "pre",
+      configureServer(server) {
+        server.middlewares.use((request, _response, next) => {
+          if (request.url?.startsWith("/api/media/")) {
+            delete request.headers["sec-fetch-dest"]
+          }
+
+          next()
+        })
+      },
+    },
     devtools(),
     boneyardPlugin({ routes: ["/?__bones=library"] }),
     tailwindcss(),
