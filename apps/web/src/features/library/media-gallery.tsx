@@ -429,6 +429,7 @@ function ProgressiveImage({
   const [hasPreviewError, setHasPreviewError] = useState(false)
   const [isModifierHeld, setIsModifierHeld] = useState(false)
   const [isPointerInside, setIsPointerInside] = useState(false)
+  const zoomFrame = useRef<HTMLDivElement | null>(null)
   const zoomBounds = useRef<DOMRect | null>(null)
   const originalUrl = `/api/media/${encodeURIComponent(item.driveFileId)}`
   const isInspecting = isModifierHeld && isPointerInside
@@ -436,9 +437,15 @@ function ProgressiveImage({
   useEffect(() => {
     function onModifierChange(event: KeyboardEvent) {
       if (event.key === "Alt" || event.key === "Shift") {
-        setIsModifierHeld(
+        const isHeld =
           event.type === "keydown" || event.altKey || event.shiftKey
-        )
+        setIsModifierHeld(isHeld)
+        if (isHeld) {
+          setIsPointerInside(
+            (current) =>
+              current || Boolean(zoomFrame.current?.matches(":hover"))
+          )
+        }
       }
     }
 
@@ -459,6 +466,7 @@ function ProgressiveImage({
   return (
     <div
       className={`grid place-items-center transition-transform motion-reduce:transition-none ${isInspecting ? "cursor-zoom-in" : ""}`}
+      ref={zoomFrame}
       onPointerEnter={(event) => {
         zoomBounds.current = event.currentTarget.getBoundingClientRect()
         setIsPointerInside(true)

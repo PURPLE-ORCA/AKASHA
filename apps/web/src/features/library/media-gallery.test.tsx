@@ -250,14 +250,19 @@ describe("MediaGallery image loading", () => {
   })
 
   it("zooms toward the pointer while Shift is held", () => {
-    renderGallery([createItem("image")])
+    renderGallery([
+      createItem("image", { id: "first", title: "First" }),
+      createItem("image", {
+        driveFileId: "second-file",
+        id: "second",
+        title: "Second",
+      }),
+    ])
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Open image reference" })
-    )
+    fireEvent.click(screen.getByRole("button", { name: "Open First" }))
 
     const original = within(screen.getByRole("dialog")).getByRole("img", {
-      name: "image reference",
+      name: "First",
     })
     const imageFrame = original.parentElement as HTMLDivElement
     vi.spyOn(imageFrame, "getBoundingClientRect").mockReturnValue({
@@ -283,6 +288,21 @@ describe("MediaGallery image loading", () => {
 
     expect(imageFrame.style.transform).toBe("scale(1)")
     expect(imageFrame.style.transformOrigin).toBe("center")
+
+    fireEvent.keyDown(window, { key: "ArrowRight" })
+
+    const secondOriginal = within(screen.getByRole("dialog")).getByRole(
+      "img",
+      { name: "Second" }
+    )
+    const secondImageFrame = secondOriginal.parentElement as HTMLDivElement
+    vi.spyOn(secondImageFrame, "matches").mockImplementation(
+      (selector) => selector === ":hover"
+    )
+
+    fireEvent.keyDown(window, { key: "Shift", shiftKey: true })
+
+    expect(secondImageFrame.style.transform).toBe("scale(2)")
   })
 
   it("renders every item before lazy image loading begins", () => {
