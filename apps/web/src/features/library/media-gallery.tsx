@@ -16,6 +16,7 @@ import { ContextMenu } from "@heroui-pro/react"
 import type { LibraryItem } from "@akasha/contracts"
 
 const PRIORITY_IMAGE_COUNT = 2
+const ORIGINAL_PREFETCH_DELAY_MS = 150
 
 type MediaGalleryProps = {
   emptyMessage?: string
@@ -105,6 +106,16 @@ const MediaCard = memo(function MediaCard({
   priority,
 }: MediaCardProps) {
   const [hasImageError, setHasImageError] = useState(false)
+  const prefetchTimeout = useRef<number | undefined>(undefined)
+  useEffect(
+    () => () => window.clearTimeout(prefetchTimeout.current),
+    [isSelectionMode, item]
+  )
+
+  function cancelPrefetch() {
+    window.clearTimeout(prefetchTimeout.current)
+  }
+
   const hasIntrinsicSize = Boolean(item.width && item.height)
   const card = (
     <div
@@ -139,6 +150,7 @@ const MediaCard = memo(function MediaCard({
             : () => onOpen(index)
         }
         onFocus={() => {
+          cancelPrefetch()
           if (!isSelectionMode) preloadOriginalImage(item)
         }}
         onKeyDown={(event) => {
@@ -156,9 +168,23 @@ const MediaCard = memo(function MediaCard({
           event.preventDefault()
           onOpenFolder(item.folderId)
         }}
-        onPointerEnter={() => {
-          if (!isSelectionMode) preloadOriginalImage(item)
+        onPointerEnter={(event) => {
+          if (
+            isSelectionMode ||
+            item.kind !== "image" ||
+            event.pointerType === "touch"
+          ) {
+            return
+          }
+          cancelPrefetch()
+          prefetchTimeout.current = window.setTimeout(
+            () => preloadOriginalImage(item),
+            ORIGINAL_PREFETCH_DELAY_MS
+          )
         }}
+        onPointerLeave={cancelPrefetch}
+        onPointerCancel={cancelPrefetch}
+        onPointerDown={cancelPrefetch}
         type="button"
       >
         <span
@@ -553,6 +579,7 @@ function preloadOriginalImage(item: LibraryItem) {
 
   const image = new Image()
   image.decoding = "async"
+  image.fetchPriority = "low"
   image.src = `/api/media/${encodeURIComponent(item.driveFileId)}`
 }
 

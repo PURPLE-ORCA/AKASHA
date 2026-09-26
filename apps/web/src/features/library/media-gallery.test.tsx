@@ -15,6 +15,7 @@ import { MediaGallery } from "./media-gallery"
 afterEach(() => {
   cleanup()
   vi.restoreAllMocks()
+  vi.useRealTimers()
 })
 
 function createItem(
@@ -134,6 +135,45 @@ describe("MediaGallery context menu", () => {
 })
 
 describe("MediaGallery image loading", () => {
+  it("prefetches sustained hover at low priority and keyboard focus immediately", () => {
+    vi.useFakeTimers()
+    const image = document.createElement("img")
+    const createImage = vi.spyOn(window, "Image").mockImplementation(function () {
+      return image
+    })
+    renderGallery([createItem("image")])
+    const card = screen.getByRole("button", { name: "Open image reference" })
+
+    fireEvent.pointerEnter(card, { pointerType: "mouse" })
+    expect(createImage).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(150)
+
+    expect(createImage).toHaveBeenCalledTimes(1)
+    expect(image.getAttribute("src")).toBe("/api/media/image-file")
+    expect(image.fetchPriority).toBe("low")
+
+    fireEvent.pointerLeave(card)
+    fireEvent.focus(card)
+    expect(createImage).toHaveBeenCalledTimes(2)
+  })
+
+  it("cancels original prefetch when hover ends or the gallery unmounts", () => {
+    vi.useFakeTimers()
+    const createImage = vi.spyOn(window, "Image")
+    renderGallery([createItem("image")])
+    const card = screen.getByRole("button", { name: "Open image reference" })
+
+    fireEvent.pointerEnter(card, { pointerType: "mouse" })
+    fireEvent.pointerLeave(card)
+    vi.advanceTimersByTime(150)
+    expect(createImage).not.toHaveBeenCalled()
+
+    fireEvent.pointerEnter(card, { pointerType: "mouse" })
+    cleanup()
+    vi.advanceTimersByTime(150)
+    expect(createImage).not.toHaveBeenCalled()
+  })
+
   it("fills each masonry column through the context-menu trigger", () => {
     renderGallery([createItem("image")])
 
