@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { memo, useEffect, useRef, useState } from "react"
 import {
   ArrowLeftIcon,
   ArrowRightIcon,
@@ -28,7 +28,7 @@ type MediaGalleryProps = {
   selectedItemIds: ReadonlySet<string>
 }
 
-export function MediaGallery({
+export const MediaGallery = memo(function MediaGallery({
   emptyMessage = "No media here yet.",
   isSelectionMode,
   items,
@@ -56,17 +56,16 @@ export function MediaGallery({
       >
         {items.map((item, index) => (
           <MediaCard
+            index={index}
             isSelected={selectedItemIds.has(item.id)}
             isSelectionMode={isSelectionMode}
             item={item}
             key={item.id}
-            onMove={() => onMoveItem(item.id)}
-            onOpen={() => setActiveIndex(index)}
-            onOpenFolder={() => onOpenFolder(item.folderId)}
-            onRemove={() => onRemoveItem(item.id)}
-            onSelectionChange={(isSelected) =>
-              onSelectionChange(item.id, isSelected)
-            }
+            onMove={onMoveItem}
+            onOpen={setActiveIndex}
+            onOpenFolder={onOpenFolder}
+            onRemove={onRemoveItem}
+            onSelectionChange={onSelectionChange}
             priority={index < PRIORITY_IMAGE_COUNT}
           />
         ))}
@@ -78,21 +77,23 @@ export function MediaGallery({
       />
     </>
   )
-}
+})
 
 type MediaCardProps = {
+  index: number
   isSelected: boolean
   isSelectionMode: boolean
   item: LibraryItem
-  onMove: () => void
-  onOpen: () => void
-  onOpenFolder: () => void
-  onRemove: () => void
-  onSelectionChange: (isSelected: boolean) => void
+  onMove: (itemId: string) => void
+  onOpen: (index: number) => void
+  onOpenFolder: (folderId: string) => void
+  onRemove: (itemId: string) => void
+  onSelectionChange: (itemId: string, isSelected: boolean) => void
   priority: boolean
 }
 
-function MediaCard({
+const MediaCard = memo(function MediaCard({
+  index,
   isSelected,
   isSelectionMode,
   item,
@@ -114,7 +115,7 @@ function MediaCard({
           <Checkbox
             aria-label={`${isSelected ? "Deselect" : "Select"} ${item.title}`}
             isSelected={isSelected}
-            onChange={onSelectionChange}
+            onChange={(nextSelected) => onSelectionChange(item.id, nextSelected)}
           >
             <Checkbox.Content>
               <Checkbox.Control>
@@ -133,7 +134,9 @@ function MediaCard({
         aria-pressed={isSelectionMode ? isSelected : undefined}
         className="block w-full cursor-pointer appearance-none overflow-hidden rounded-2xl border-0 bg-transparent p-0 text-inherit focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
         onClick={
-          isSelectionMode ? () => onSelectionChange(!isSelected) : onOpen
+          isSelectionMode
+            ? () => onSelectionChange(item.id, !isSelected)
+            : () => onOpen(index)
         }
         onFocus={() => {
           if (!isSelectionMode) preloadOriginalImage(item)
@@ -151,7 +154,7 @@ function MediaCard({
           }
 
           event.preventDefault()
-          onOpenFolder()
+          onOpenFolder(item.folderId)
         }}
         onPointerEnter={() => {
           if (!isSelectionMode) preloadOriginalImage(item)
@@ -210,8 +213,8 @@ function MediaCard({
             if (key === "download" && item.kind === "image") {
               downloadImage(item)
             }
-            if (key === "move") onMove()
-            if (key === "remove") onRemove()
+            if (key === "move") onMove(item.id)
+            if (key === "remove") onRemove(item.id)
           }}
         >
           {item.kind === "image" ? (
@@ -233,7 +236,7 @@ function MediaCard({
       </ContextMenu.Popover>
     </ContextMenu>
   )
-}
+})
 
 const imageFileExtensions: Record<string, string> = {
   "image/avif": "avif",
