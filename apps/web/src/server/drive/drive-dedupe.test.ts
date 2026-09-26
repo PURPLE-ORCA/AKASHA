@@ -13,10 +13,8 @@ const mocks = vi.hoisted(() => ({
   update: vi.fn(),
 }))
 
-vi.mock("googleapis", () => ({
-  google: {
-    drive: () => ({ files: mocks }),
-  },
+vi.mock("googleapis/build/src/apis/drive/index.js", () => ({
+  drive: () => ({ files: mocks }),
 }))
 
 vi.mock("../auth/google-oauth.server", () => ({

@@ -8,10 +8,8 @@ const mocks = vi.hoisted(() => ({
 }))
 const credentials = { refreshToken: "refresh-token" }
 
-vi.mock("googleapis", () => ({
-  google: {
-    drive: () => ({ files: mocks }),
-  },
+vi.mock("googleapis/build/src/apis/drive/index.js", () => ({
+  drive: () => ({ files: mocks }),
 }))
 
 vi.mock("../auth/google-oauth.server", () => ({
