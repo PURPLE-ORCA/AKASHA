@@ -1,6 +1,8 @@
 import { memo, useEffect, useRef, useState } from "react"
 import {
   ArrowLeftIcon,
+  StackPlusIcon,
+  XIcon,
   ArrowRightIcon,
   ArrowsInSimpleIcon,
   DownloadSimpleIcon,
@@ -19,6 +21,10 @@ const PRIORITY_IMAGE_COUNT = 2
 const ORIGINAL_PREFETCH_DELAY_MS = 150
 
 type MediaGalleryProps = {
+  poolMode?: boolean
+  poolItemIds?: ReadonlySet<string>
+  onTogglePool?: (itemId: string) => void
+  showPoolControls?: boolean
   emptyMessage?: string
   isSelectionMode: boolean
   items: LibraryItem[]
@@ -30,6 +36,10 @@ type MediaGalleryProps = {
 }
 
 export const MediaGallery = memo(function MediaGallery({
+  poolMode = false,
+  poolItemIds,
+  onTogglePool,
+  showPoolControls = false,
   emptyMessage = "No media here yet.",
   isSelectionMode,
   items,
@@ -52,13 +62,17 @@ export const MediaGallery = memo(function MediaGallery({
   return (
     <>
       <div
-        aria-label="Saved media"
-        className="columns-1 gap-4 sm:columns-2 min-[56rem]:columns-3 min-[76rem]:columns-4 min-[100rem]:columns-5"
+        aria-label={poolMode ? "Pooled media" : "Saved media"}
+        className={poolMode ? "columns-2 gap-3" : "columns-[18rem] gap-4"}
       >
         {items.map((item, index) => (
           <MediaCard
+            inPool={poolItemIds?.has(item.id) ?? false}
+            onTogglePool={onTogglePool}
+            showPoolControls={showPoolControls || poolMode}
+            poolMode={poolMode}
             index={index}
-            isSelected={selectedItemIds.has(item.id)}
+            isSelected={!poolMode && selectedItemIds.has(item.id)}
             isSelectionMode={isSelectionMode}
             item={item}
             key={item.id}
@@ -81,6 +95,10 @@ export const MediaGallery = memo(function MediaGallery({
 })
 
 type MediaCardProps = {
+  inPool: boolean
+  onTogglePool?: (itemId: string) => void
+  showPoolControls: boolean
+  poolMode: boolean
   index: number
   isSelected: boolean
   isSelectionMode: boolean
@@ -94,6 +112,10 @@ type MediaCardProps = {
 }
 
 const MediaCard = memo(function MediaCard({
+  inPool,
+  onTogglePool,
+  showPoolControls,
+  poolMode,
   index,
   isSelected,
   isSelectionMode,
@@ -121,12 +143,31 @@ const MediaCard = memo(function MediaCard({
     <div
       className={`relative mb-4 break-inside-avoid rounded-2xl ${isSelected ? "ring-2 ring-accent ring-offset-2 ring-offset-background" : ""}`}
     >
+      {showPoolControls && !isSelectionMode && onTogglePool ? (
+        <div className="absolute top-2 right-2 z-10 rounded-xl bg-surface/90 shadow-surface">
+          <Button
+            isIconOnly
+            size="sm"
+            variant="ghost"
+            aria-label={`${inPool ? "Remove from" : "Add to"} pool: ${item.title}`}
+            onPress={() => onTogglePool(item.id)}
+          >
+            {inPool ? (
+              <XIcon aria-hidden="true" />
+            ) : (
+              <StackPlusIcon aria-hidden="true" />
+            )}
+          </Button>
+        </div>
+      ) : null}
       {isSelectionMode ? (
         <div className="absolute top-3 left-3 z-10 rounded-lg bg-surface/90 p-1 shadow-surface backdrop-blur-sm">
           <Checkbox
             aria-label={`${isSelected ? "Deselect" : "Select"} ${item.title}`}
             isSelected={isSelected}
-            onChange={(nextSelected) => onSelectionChange(item.id, nextSelected)}
+            onChange={(nextSelected) =>
+              onSelectionChange(item.id, nextSelected)
+            }
           >
             <Checkbox.Content>
               <Checkbox.Control>
@@ -223,7 +264,7 @@ const MediaCard = memo(function MediaCard({
     </div>
   )
 
-  if (isSelectionMode) return card
+  if (isSelectionMode || poolMode) return card
 
   return (
     <ContextMenu>
@@ -239,10 +280,20 @@ const MediaCard = memo(function MediaCard({
             if (key === "download" && item.kind === "image") {
               downloadImage(item)
             }
+            if (key === "pool") onTogglePool?.(item.id)
             if (key === "move") onMove(item.id)
             if (key === "remove") onRemove(item.id)
           }}
         >
+          {onTogglePool ? (
+            <ContextMenu.Item
+              id="pool"
+              textValue={inPool ? "Remove from pool" : "Add to pool"}
+            >
+              <StackPlusIcon aria-hidden="true" />
+              <Label>{inPool ? "Remove from pool" : "Add to pool"}</Label>
+            </ContextMenu.Item>
+          ) : null}
           {item.kind === "image" ? (
             <ContextMenu.Item id="download" textValue="Download">
               <DownloadSimpleIcon aria-hidden="true" />
@@ -300,7 +351,7 @@ function MediaLightbox({
 }: MediaLightboxProps) {
   const [scale, setScale] = useState(1)
   const currentIndex = activeIndex ?? 0
-  const activeItem = activeIndex === null ? null : items[activeIndex]
+  const activeItem = activeIndex === null ? null : (items[activeIndex] ?? null)
   const canGoBack = activeIndex !== null && activeIndex > 0
   const canGoForward = activeIndex !== null && activeIndex < items.length - 1
 

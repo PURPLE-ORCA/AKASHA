@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { FolderSimplePlusIcon } from "@phosphor-icons/react"
-import { Label, Typography } from "@heroui/react"
+import { FolderSimplePlusIcon, XIcon, StackIcon } from "@phosphor-icons/react"
+import { Button, Card, Chip, Label, Typography } from "@heroui/react"
 import { ContextMenu } from "@heroui-pro/react"
 import { getFolderDescendantIds, getFolderPath } from "@akasha/contracts"
 import type { LibraryFolder } from "@akasha/contracts"
@@ -36,6 +36,7 @@ import { LibraryToolbar } from "./library-toolbar"
 import { LibraryDropTarget, LibraryUploader } from "./library-upload"
 import type { LibraryUploaderHandle } from "./library-upload"
 import { MediaGallery } from "./media-gallery"
+import { useTemporaryPool } from "./use-temporary-pool"
 import { useLibraryKeyboardShortcuts } from "./use-library-keyboard-shortcuts"
 import {
   createLibraryFolder,
@@ -68,10 +69,12 @@ export function LibraryPage({
   const [createFolderOpen, setCreateFolderOpen] = useState(false)
   const [isSelectionMode, setIsSelectionMode] = useState(false)
   const [folderToMove, setFolderToMove] = useState<LibraryFolder | null>(null)
-  const [folderToRemove, setFolderToRemove] =
-    useState<LibraryFolder | null>(null)
-  const [folderToRename, setFolderToRename] =
-    useState<LibraryFolder | null>(null)
+  const [folderToRemove, setFolderToRemove] = useState<LibraryFolder | null>(
+    null
+  )
+  const [folderToRename, setFolderToRename] = useState<LibraryFolder | null>(
+    null
+  )
   const [moveItemIds, setMoveItemIds] = useState<string[]>([])
   const [removeItemIds, setRemoveItemIds] = useState<string[]>([])
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set())
@@ -79,6 +82,14 @@ export function LibraryPage({
   const [snapshot, setSnapshot] = useState(initialSnapshot)
   const uploaderRef = useRef<LibraryUploaderHandle>(null)
   const { folders, items, rootFolderId } = snapshot
+  const pool = useTemporaryPool(rootFolderId)
+  const poolItems = useMemo(() => {
+    const byId = new Map(items.map((item) => [item.id, item]))
+    return Array.from(pool.itemIds).flatMap((id) => {
+      const item = byId.get(id)
+      return item ? [item] : []
+    })
+  }, [items, pool.itemIds])
   const selectedFolderId = getSelectedFolderId(
     folders,
     rootFolderId,
@@ -122,8 +133,7 @@ export function LibraryPage({
     )
   }, [folders, items, moveItemIds, rootFolderId])
   const folderMoveDestinations = useMemo(
-    () =>
-      getFolderMoveDestinations(folders, rootFolderId, folderToMove),
+    () => getFolderMoveDestinations(folders, rootFolderId, folderToMove),
     [folderToMove, folders, rootFolderId]
   )
   const folderRemovalSummary = useMemo(
@@ -190,8 +200,7 @@ export function LibraryPage({
         {
           id: folderId,
           name: name.trim(),
-          parentId:
-            selectedFolderId === rootFolderId ? null : selectedFolderId,
+          parentId: selectedFolderId === rootFolderId ? null : selectedFolderId,
         },
       ],
     }))
@@ -344,6 +353,9 @@ export function LibraryPage({
 
     return (
       <MediaGallery
+        poolItemIds={pool.itemIds}
+        onTogglePool={pool.toggleItem}
+        showPoolControls={pool.isActive}
         isSelectionMode={isSelectionMode}
         items={filteredItems}
         onMoveItem={openMoveItem}
@@ -358,6 +370,9 @@ export function LibraryPage({
   return (
     <div className="min-h-screen bg-background text-foreground">
       <LibraryToolbar
+        poolOpen={pool.isOpen}
+        poolCount={poolItems.length}
+        onPoolToggle={pool.toggleOpen}
         activeView={activeTab}
         canSelect={filteredItems.length > 0}
         folderPath={folderPath}
@@ -373,45 +388,125 @@ export function LibraryPage({
         theme={theme}
         user={snapshot.user}
       />
-      <LibraryDropTarget
-        folderName={selectedFolderName}
-        onFiles={(files) => uploaderRef.current?.addFiles(files)}
+      <div
+        className={
+          pool.isOpen
+            ? "grid items-start min-[64rem]:grid-cols-[minmax(0,1fr)_22rem]"
+            : ""
+        }
       >
-        <ContextMenu>
-          <ContextMenu.Trigger
-            render={(props) => (
-              <div
-                {...props}
-                className="block min-h-[calc(100svh-4.5rem)] w-full"
-                data-library-context-trigger
-              />
-            )}
+        <div className="min-w-0">
+          <LibraryDropTarget
+            folderName={selectedFolderName}
+            onFiles={(files) => uploaderRef.current?.addFiles(files)}
           >
-            <main
-              className="w-full px-[clamp(0.75rem,1.5vw,1.5rem)] pt-4 pb-12"
-              id="main-content"
-            >
-              <div className="sr-only">
-                <Typography type="h1">{selectedFolderName}</Typography>
-              </div>
-              <div className="min-h-[calc(100svh-10rem)]">
-                {renderLibraryContent()}
-              </div>
-            </main>
-          </ContextMenu.Trigger>
-          <ContextMenu.Popover>
-            <ContextMenu.Menu
-              aria-label="Folder actions"
-              onAction={() => setCreateFolderOpen(true)}
-            >
-              <ContextMenu.Item id="create-folder" textValue="Create folder">
-                <FolderSimplePlusIcon aria-hidden="true" />
-                <Label>Create folder</Label>
-              </ContextMenu.Item>
-            </ContextMenu.Menu>
-          </ContextMenu.Popover>
-        </ContextMenu>
-      </LibraryDropTarget>
+            <ContextMenu>
+              <ContextMenu.Trigger
+                render={(props) => (
+                  <div
+                    {...props}
+                    className="block min-h-[calc(100svh-4.5rem)] w-full"
+                    data-library-context-trigger
+                  />
+                )}
+              >
+                <main
+                  className="w-full px-[clamp(0.75rem,1.5vw,1.5rem)] pt-4 pb-12"
+                  id="main-content"
+                >
+                  <div className="sr-only">
+                    <Typography type="h1">{selectedFolderName}</Typography>
+                  </div>
+                  <div className="min-h-[calc(100svh-10rem)]">
+                    {renderLibraryContent()}
+                  </div>
+                </main>
+              </ContextMenu.Trigger>
+              <ContextMenu.Popover>
+                <ContextMenu.Menu
+                  aria-label="Folder actions"
+                  onAction={() => setCreateFolderOpen(true)}
+                >
+                  <ContextMenu.Item
+                    id="create-folder"
+                    textValue="Create folder"
+                  >
+                    <FolderSimplePlusIcon aria-hidden="true" />
+                    <Label>Create folder</Label>
+                  </ContextMenu.Item>
+                </ContextMenu.Menu>
+              </ContextMenu.Popover>
+            </ContextMenu>
+          </LibraryDropTarget>
+        </div>
+        {pool.isOpen ? (
+          <aside
+            aria-label="Temporary pool"
+            id="temporary-pool"
+            className="order-first min-w-0 px-3 pt-4 pb-4 min-[64rem]:sticky min-[64rem]:top-[4.5rem] min-[64rem]:order-last min-[64rem]:pl-0"
+          >
+            <Card>
+              <Card.Header>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Card.Title>Temporary pool</Card.Title>
+                    <Chip size="sm">{poolItems.length}</Chip>
+                  </div>
+                  <Button
+                    isIconOnly
+                    size="sm"
+                    variant="ghost"
+                    aria-label="Collapse pool"
+                    onPress={() => {
+                      pool.close()
+                      document.getElementById("temporary-pool-toggle")?.focus()
+                    }}
+                  >
+                    <XIcon aria-hidden="true" />
+                  </Button>
+                </div>
+              </Card.Header>
+              <Card.Content>
+                <div className="max-h-[38svh] overflow-y-auto overscroll-contain p-1 min-[64rem]:max-h-[calc(100svh-16rem)]">
+                  {poolItems.length > 0 ? (
+                    <MediaGallery
+                      poolMode
+                      poolItemIds={pool.itemIds}
+                      onTogglePool={pool.toggleItem}
+                      isSelectionMode={false}
+                      items={poolItems}
+                      onMoveItem={openMoveItem}
+                      onOpenFolder={openItemFolder}
+                      onRemoveItem={openRemoveItem}
+                      onSelectionChange={changeItemSelection}
+                      selectedItemIds={pool.itemIds}
+                    />
+                  ) : (
+                    <div className="grid min-h-36 place-content-center justify-items-center gap-3 text-muted">
+                      <StackIcon aria-hidden="true" size={28} />
+                      <Typography color="muted">
+                        Add assets to your pool
+                      </Typography>
+                    </div>
+                  )}
+                </div>
+              </Card.Content>
+              <Card.Footer>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onPress={() => {
+                    pool.dismiss()
+                    document.getElementById("temporary-pool-toggle")?.focus()
+                  }}
+                >
+                  Dismiss pool
+                </Button>
+              </Card.Footer>
+            </Card>
+          </aside>
+        ) : null}
+      </div>
       <LibraryCommandPalette
         folders={folders}
         onOpenChange={setCommandOpen}
@@ -419,6 +514,10 @@ export function LibraryPage({
         open={commandOpen}
       />
       <LibraryBulkActions
+        onAddToPool={() => {
+          pool.addItems(Array.from(selectedItemIds))
+          exitSelectionMode()
+        }}
         onDelete={() => setRemoveItemIds(Array.from(selectedItemIds))}
         onExit={exitSelectionMode}
         onMove={() => setMoveItemIds(Array.from(selectedItemIds))}
