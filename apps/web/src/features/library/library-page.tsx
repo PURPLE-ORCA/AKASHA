@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { FolderSimplePlusIcon } from "@phosphor-icons/react"
 import { Label, Typography } from "@heroui/react"
 import { ContextMenu } from "@heroui-pro/react"
@@ -265,14 +265,31 @@ export function LibraryPage({
     setSelectedItemIds(new Set())
   }
 
-  function changeItemSelection(itemId: string, isSelected: boolean) {
-    setSelectedItemIds((current) => {
-      const next = new Set(current)
-      if (isSelected) next.add(itemId)
-      else next.delete(itemId)
-      return next
-    })
-  }
+  const changeItemSelection = useCallback(
+    (itemId: string, isSelected: boolean) => {
+      setSelectedItemIds((current) => {
+        const next = new Set(current)
+        if (isSelected) next.add(itemId)
+        else next.delete(itemId)
+        return next
+      })
+    },
+    []
+  )
+  const openMoveItem = useCallback(
+    (itemId: string) => setMoveItemIds([itemId]),
+    []
+  )
+  const openRemoveItem = useCallback(
+    (itemId: string) => setRemoveItemIds([itemId]),
+    []
+  )
+  const openItemFolder = useCallback(
+    (folderId: string) => {
+      if (folderId !== selectedFolderId) onFolderNavigate?.(folderId)
+    },
+    [onFolderNavigate, selectedFolderId]
+  )
 
   async function moveItems(destinationFolderId: string) {
     if (moveItemIds.length === 0) return
@@ -329,13 +346,9 @@ export function LibraryPage({
       <MediaGallery
         isSelectionMode={isSelectionMode}
         items={filteredItems}
-        onMoveItem={(itemId) => setMoveItemIds([itemId])}
-        onOpenFolder={(folderId) => {
-          if (folderId !== selectedFolderId && onFolderNavigate) {
-            onFolderNavigate(folderId)
-          }
-        }}
-        onRemoveItem={(itemId) => setRemoveItemIds([itemId])}
+        onMoveItem={openMoveItem}
+        onOpenFolder={openItemFolder}
+        onRemoveItem={openRemoveItem}
         onSelectionChange={changeItemSelection}
         selectedItemIds={selectedItemIds}
       />

@@ -11,7 +11,7 @@ import type {
   CaptureOutcome,
   LibraryUploadMimeType,
 } from "@akasha/contracts"
-import { google } from "googleapis"
+import { drive as googleDrive } from "googleapis/build/src/apis/drive/index.js"
 import type { drive_v3 } from "googleapis"
 
 import type { GoogleTokenCredentials } from "../auth/google-oauth.server"
@@ -73,7 +73,7 @@ export function createDriveClient(credentials: GoogleTokenCredentials) {
     refresh_token: credentials.refreshToken,
   })
 
-  return google.drive({ version: "v3", auth })
+  return googleDrive({ version: "v3", auth })
 }
 
 export async function listStillroomLibrary(drive: drive_v3.Drive) {

@@ -1,4 +1,4 @@
-import { google } from "googleapis"
+import { auth } from "googleapis/build/src/apis/drive/index.js"
 
 import { getServerEnv } from "../env.server"
 
@@ -25,7 +25,7 @@ export function isGoogleRefreshTokenRejected(error: unknown) {
 export function createGoogleOAuthClient() {
   const environment = getServerEnv()
 
-  return new google.auth.OAuth2(
+  return new auth.OAuth2(
     environment.GOOGLE_CLIENT_ID,
     environment.GOOGLE_CLIENT_SECRET,
     environment.GOOGLE_REDIRECT_URI

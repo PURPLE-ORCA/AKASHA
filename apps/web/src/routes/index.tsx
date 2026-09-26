@@ -1,6 +1,7 @@
 import {
   Await,
   createFileRoute,
+  lazyRouteComponent,
   useNavigate,
   useRouter,
 } from "@tanstack/react-router"
@@ -9,8 +10,12 @@ import { z } from "zod"
 
 import { AuthLanding } from "@/features/auth/auth-landing"
 import { getLibrarySnapshot } from "@/features/library/library.functions"
-import { LibraryPage } from "@/features/library/library-page"
 import "@/bones/registry"
+
+const LibraryPage = lazyRouteComponent(
+  () => import("@/features/library/library-page"),
+  "LibraryPage"
+)
 
 export const Route = createFileRoute("/")({
   component: LibraryRoute,
