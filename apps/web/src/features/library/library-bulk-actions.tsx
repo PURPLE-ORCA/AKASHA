@@ -1,8 +1,14 @@
-import { FolderSimpleIcon, TrashIcon, XIcon } from "@phosphor-icons/react"
+import {
+  StackPlusIcon,
+  FolderSimpleIcon,
+  TrashIcon,
+  XIcon,
+} from "@phosphor-icons/react"
 import { Button, Chip, Separator, Tooltip } from "@heroui/react"
 import { ActionBar } from "@heroui-pro/react"
 
 type LibraryBulkActionsProps = {
+  onAddToPool?: () => void
   onDelete: () => void
   onExit: () => void
   onMove: () => void
@@ -10,6 +16,7 @@ type LibraryBulkActionsProps = {
 }
 
 export function LibraryBulkActions({
+  onAddToPool,
   onDelete,
   onExit,
   onMove,
@@ -22,6 +29,17 @@ export function LibraryBulkActions({
       </ActionBar.Prefix>
       <Separator orientation="vertical" />
       <ActionBar.Content>
+        {onAddToPool ? (
+          <Button
+            aria-label="Add selected assets to pool"
+            size="sm"
+            variant="ghost"
+            onPress={onAddToPool}
+          >
+            <StackPlusIcon aria-hidden="true" />
+            <span className="action-bar__label">Pool</span>
+          </Button>
+        ) : null}
         <Button
           aria-label="Move selected assets"
           size="sm"

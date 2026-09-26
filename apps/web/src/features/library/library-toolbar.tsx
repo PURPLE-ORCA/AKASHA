@@ -1,17 +1,13 @@
 import {
   DesktopIcon,
+  StackIcon,
   MoonIcon,
   SelectionPlusIcon,
   SelectionSlashIcon,
   SunIcon,
   UploadSimpleIcon,
 } from "@phosphor-icons/react"
-import {
-  Breadcrumbs,
-  Button,
-  ToggleButton,
-  Tooltip,
-} from "@heroui/react"
+import { Breadcrumbs, Button, ToggleButton, Tooltip } from "@heroui/react"
 import { Segment } from "@heroui-pro/react"
 import type { LibraryFolder } from "@akasha/contracts"
 
@@ -23,6 +19,9 @@ import type { LibrarySortOrder } from "./library-items"
 import { LibraryShortcuts } from "./library-shortcuts"
 
 type LibraryToolbarProps = {
+  poolOpen: boolean
+  poolCount: number
+  onPoolToggle: () => void
   activeView: "all" | "folders"
   canSelect: boolean
   folderPath: LibraryFolder[]
@@ -40,6 +39,9 @@ type LibraryToolbarProps = {
 }
 
 export function LibraryToolbar({
+  poolOpen,
+  poolCount,
+  onPoolToggle,
   activeView,
   canSelect,
   folderPath,
@@ -95,6 +97,18 @@ export function LibraryToolbar({
             sortOrder={sortOrder}
           />
         ) : null}
+        <Button
+          size="sm"
+          variant={poolOpen ? "secondary" : "outline"}
+          id="temporary-pool-toggle"
+          aria-label="Temporary pool"
+          aria-expanded={poolOpen}
+          aria-controls="temporary-pool"
+          onPress={onPoolToggle}
+        >
+          <StackIcon aria-hidden="true" />
+          Pool{poolCount > 0 ? ` · ${poolCount}` : ""}
+        </Button>
         <LibraryShortcuts />
         <Segment
           aria-label="Library views"

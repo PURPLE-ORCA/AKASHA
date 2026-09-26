@@ -43,11 +43,114 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  sessionStorage.clear()
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
 })
 
 describe("LibraryPage", () => {
+  it("collects across folders, restores the pool, and dismisses without deleting assets", () => {
+    const snapshot = {
+      folders: [
+        { id: "source", name: "Source", parentId: null },
+        { id: "target", name: "Target", parentId: null },
+      ],
+      items: [
+        createLibraryItem("one", "First asset", "source"),
+        createLibraryItem("two", "Second asset", "target"),
+      ],
+      rootFolderId: "root",
+    }
+    const page = render(
+      <LibraryPage initialSnapshot={snapshot} requestedFolderId="source" />
+    )
+    fireEvent.click(screen.getByRole("button", { name: "Temporary pool" }))
+    fireEvent.click(
+      screen.getByRole("button", { name: "Add to pool: First asset" })
+    )
+    page.rerender(
+      <LibraryPage initialSnapshot={snapshot} requestedFolderId="target" />
+    )
+    expect(
+      within(
+        screen.getByRole("complementary", { name: "Temporary pool" })
+      ).getByRole("button", { name: "Open First asset" })
+    ).toBeTruthy()
+    fireEvent.keyDown(window, { key: "m" })
+    fireEvent.click(screen.getByRole("button", { name: "Select Second asset" }))
+    fireEvent.click(
+      screen.getByRole("button", { name: "Add selected assets to pool" })
+    )
+    expect(
+      JSON.parse(sessionStorage.getItem("akasha:temporary-pool:root")!)
+    ).toEqual(["one", "two"])
+    fireEvent.click(screen.getByRole("button", { name: "Collapse pool" }))
+    expect(screen.queryByRole("complementary")).toBeNull()
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Temporary pool" })
+    )
+    page.unmount()
+    render(<LibraryPage initialSnapshot={snapshot} />)
+    const pool = within(
+      screen.getByRole("complementary", { name: "Temporary pool" })
+    )
+    fireEvent.click(pool.getByRole("button", { name: "Open First asset" }))
+    expect(screen.getByRole("dialog")).toBeTruthy()
+    fireEvent.click(screen.getByRole("button", { name: "Close" }))
+    fireEvent.click(
+      pool.getByRole("button", { name: "Remove from pool: First asset" })
+    )
+    expect(pool.queryByRole("button", { name: "Open First asset" })).toBeNull()
+    fireEvent.click(pool.getByRole("button", { name: "Dismiss pool" }))
+    expect(sessionStorage.getItem("akasha:temporary-pool:root")).toBeNull()
+    expect(
+      screen.getByRole("button", { name: "Open First asset" })
+    ).toBeTruthy()
+    expect(
+      screen.getByRole("button", { name: "Open Second asset" })
+    ).toBeTruthy()
+    for (const action of Object.values(actionMocks))
+      expect(action).not.toHaveBeenCalled()
+  })
+
+  it("recovers from invalid or blocked pool storage and isolates libraries", () => {
+    sessionStorage.setItem("akasha:temporary-pool:root", '{"invalid":true}')
+    const snapshot = {
+      folders: [],
+      items: [createLibraryItem("one", "First asset")],
+      rootFolderId: "root",
+    }
+    const page = render(<LibraryPage initialSnapshot={snapshot} />)
+    expect(screen.queryByRole("complementary")).toBeNull()
+    const setItem = vi
+      .spyOn(Storage.prototype, "setItem")
+      .mockImplementation(() => {
+        throw new Error("Storage blocked")
+      })
+    fireEvent.click(screen.getByRole("button", { name: "Temporary pool" }))
+    fireEvent.click(
+      screen.getByRole("button", { name: "Add to pool: First asset" })
+    )
+    expect(
+      within(screen.getByRole("complementary")).getByRole("button", {
+        name: "Open First asset",
+      })
+    ).toBeTruthy()
+    setItem.mockRestore()
+    page.rerender(
+      <LibraryPage
+        initialSnapshot={{ ...snapshot, rootFolderId: "other-root" }}
+      />
+    )
+    expect(screen.queryByRole("complementary")).toBeNull()
+    fireEvent.click(screen.getByRole("button", { name: "Temporary pool" }))
+    expect(
+      within(screen.getByRole("complementary")).queryByRole("button", {
+        name: "Open First asset",
+      })
+    ).toBeNull()
+  })
+
   it("shows an empty library with a first-folder action", () => {
     render(
       <LibraryPage
@@ -380,7 +483,9 @@ describe("LibraryPage", () => {
       />
     )
 
-    expect(screen.queryByRole("searchbox", { name: "Search library" })).toBeNull()
+    expect(
+      screen.queryByRole("searchbox", { name: "Search library" })
+    ).toBeNull()
     fireEvent.click(screen.getByRole("button", { name: "Filter and sort" }))
     fireEvent.click(screen.getByText("Videos"))
     fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" })
